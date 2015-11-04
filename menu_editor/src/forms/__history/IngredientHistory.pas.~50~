@@ -1,0 +1,253 @@
+unit IngredientHistory;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Grids, Vcl.StdCtrls, Vcl.CheckLst,
+  Vcl.ComCtrls, Vcl.ExtCtrls, Ingredient, Session;
+
+type
+  TfmIngredientHistory = class(TForm)
+    pnlFilters: TPanel;
+    Label1: TLabel;
+    Label2: TLabel;
+    dtpStart: TDateTimePicker;
+    dtpEnd: TDateTimePicker;
+	btnIngredientFilters: TButton;
+    btnXLExport: TButton;
+    btnStart: TButton;
+    btnSessStart: TButton;
+    btnSessEnd: TButton;
+    dtpStartTime: TDateTimePicker;
+    dtpEndTime: TDateTimePicker;
+    pnlIngredientFilters: TPanel;
+    clIngredients: TCheckListBox;
+    sgHistory: TStringGrid;
+	procedure btnStartClick(Sender: TObject);
+	procedure btningredientFiltersClick(Sender: TObject);
+    procedure btnXLExportClick(Sender: TObject);
+    procedure btnSessStartClick(Sender: TObject);
+	procedure btnSessEndClick(Sender: TObject);
+    procedure cbBarClick(Sender: TObject);
+	public
+		ingredients: THistoryIngredientArray;
+		ingredientFilters: TIngredientArray;
+		BaseName: string;
+		procedure prepare();
+		procedure prepareFilters();
+		procedure resetItems();
+	end;
+
+var
+  fmIngredientHistory: TfmIngredientHistory;
+
+procedure show(ABaseName: string);
+
+implementation
+
+uses
+	IngredientRepository, GoodRepository, vars, ComObj, SessionPicker;
+{$R *.dfm}
+procedure show(ABaseName: string);
+begin
+	if (fmIngredientHistory = nil) then
+	begin
+        fmIngredientHistory := TfmIngredientHistory.Create(nil);
+	end;
+	fmIngredientHistory.BaseName := ABaseName;
+	fmIngredientHistory.prepare();
+	fmIngredientHistory.Show();
+end;
+
+{ TfmIngredientHistory }
+
+procedure TfmIngredientHistory.btningredientFiltersClick(Sender: TObject);
+begin
+	if pnlingredientFilters.Visible then
+	begin
+		btningredientFilters.Caption := 'Товары';
+		dtpStart.Enabled := true;
+		dtpStartTime.Enabled := true;
+		dtpEnd.Enabled := true;
+		dtpEndTime.Enabled := true;
+		btnStart.Enabled := true;
+		btnXLExport.Enabled := true;
+		resetItems();
+	end
+	else
+	begin
+		btningredientFilters.Caption := 'Применить';
+		dtpStart.Enabled := false;
+		dtpStartTime.Enabled := false;
+		dtpEnd.Enabled := false;
+		dtpEndTime.Enabled := false;
+		btnStart.Enabled := false;
+		btnXLExport.Enabled := false;
+	end;
+	pnlingredientFilters.Visible := not pnlingredientFilters.Visible;
+end;
+
+procedure TfmIngredientHistory.btnSessEndClick(Sender: TObject);
+var
+	sess: TSession;
+	btnSelected: integer;
+begin
+	sess := SessionPicker.selectSession(BaseName);
+	if (sess = nil) then
+	begin
+		exit;
+	end;
+	if (sess.DtEnd = 0) then
+	begin
+		btnSelected := MessageDlg(
+			'Выбранная сессия не была закончена! Выбрать дату начала этой сессии?',
+			mtConfirmation,
+			mbOKCancel,
+			0
+		);
+		if (btnSelected = mrOK) then
+		begin
+			dtpEnd.Date := Int(sess.DtStart);
+			dtpEndTime.Time := Frac(sess.DtStart);
+        end;
+	end;
+end;
+
+procedure TfmIngredientHistory.btnSessStartClick(Sender: TObject);
+var
+	sess: TSession;
+begin
+	sess := SessionPicker.selectSession(BaseName);
+	if (sess = nil) then
+	begin
+		exit;
+	end;
+	dtpStart.Date := Int(sess.DtStart);
+	dtpStartTime.Time := Frac(sess.DtStart);
+end;
+
+procedure TfmIngredientHistory.btnStartClick(Sender: TObject);
+begin
+	resetItems();
+end;
+
+procedure TfmIngredientHistory.btnXLExportClick(Sender: TObject);
+var
+  xls, wb, Range: OLEVariant;
+  arrData: Variant;
+  RowCount, ColCount, i, j: Integer;
+begin
+  {create variant array where we'll copy our data}
+  RowCount := sgHistory.RowCount;
+  ColCount := sgHistory.ColCount;
+  arrData := VarArrayCreate([1, RowCount, 1, ColCount], varVariant);
+
+  {fill array}
+  for i := 1 to RowCount do
+    for j := 1 to ColCount do
+      arrData[i, j] := sgHistory.Cells[j-1, i-1];
+
+  {initialize an instance of Excel}
+  xls := CreateOLEObject('Excel.Application');
+
+  {create workbook}
+  wb := xls.Workbooks.Add;
+
+  {retrieve a range where data must be placed}
+  Range := wb.WorkSheets[1].Range[wb.WorkSheets[1].Cells[1, 1],
+                                  wb.WorkSheets[1].Cells[RowCount, ColCount]];
+
+  {copy data from allocated variant array}
+  Range.Value := arrData;
+
+  {show Excel with our data}
+  xls.Visible := True;
+end;
+
+procedure TfmIngredientHistory.cbBarClick(Sender: TObject);
+begin
+	prepareFilters();
+end;
+
+procedure TfmIngredientHistory.prepare;
+var
+	i: integer;
+begin
+	with sgHistory do
+	begin
+		RowCount := 1;
+		ColCount := 3;
+		FixedCols := 1;
+		Cells[0, 0] := 'Id';
+		Cells[1, 0] := 'Название';
+		Cells[2, 0] := 'Кол-во';
+		ColWidths[0] := 50;
+		ColWidths[1] := 250;
+		ColWidths[2] := 100;
+	end;
+	prepareFilters();
+end;
+
+procedure TfmIngredientHistory.prepareFilters();
+var i: integer;
+begin
+	for i := 0 to high(ingredientFilters) do
+	begin
+		FreeAndNil(ingredientFilters[i]);
+	end;
+	setlength(ingredientFilters, 0);
+	ingredientFilters := TIngredientRepository.GetAllWithoutCheck(BaseName);
+	clIngredients.Items.Clear;
+	for i := 0 to high(ingredientFilters) do
+	begin
+		clIngredients.Items.Add(ingredientFilters[i].Caption);
+	end;
+   	clIngredients.CheckAll(cbChecked);
+end;
+
+procedure TfmIngredientHistory.resetItems;
+var
+	i: integer;
+	checked: array of integer;
+	dtStart, dtEnd: TDateTime;
+begin
+	for i := 0 to high(ingredients) do
+	begin
+        FreeAndNil(ingredients[i]);
+    end;
+	sgHistory.RowCount := 1;
+	setlength(checked, 0);
+	for i := 0 to clIngredients.Items.Count - 1 do
+	begin
+		if clIngredients.Checked[i] then
+		begin
+			setlength(checked, length(checked) + 1);
+			checked[high(checked)] := ingredientFilters[i].Id;
+        end;
+	end;
+	dtStart := Int(dtpStart.Date) + Frac(dtpStartTime.Time);
+	dtEnd := Int(dtpEnd.Date) + Frac(dtpEndTime.Time);
+	ingredients := TIngredientRepository.GetPeriodHistory(
+		BaseName,
+		dtStart,
+		dtEnd,
+		checked
+	);
+	for i := 0 to high(ingredients) do
+	begin
+		with sgHistory do
+		begin
+			RowCount := RowCount + 1;
+			Cells[0, i + 1] := IntToStr(ingredients[i].Id);
+			Cells[1, i + 1] := ingredients[i].Caption + ',' + ingredients[i].Measure.Caption;
+			Cells[2, i + 1] := PriceToStr(ingredients[i].Amount);
+		end;
+	end;
+end;
+
+
+
+
+
+end.

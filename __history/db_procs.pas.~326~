@@ -1,0 +1,388 @@
+unit db_procs;
+
+interface
+uses CheckTab;
+type
+   TDiscount = record
+      id: integer;
+	  amount: double;
+	  key: string;
+   end;
+   TDbProcs = class
+      class function OpenSession: boolean;
+      class function CloseSession: boolean;
+      class function InitSession: boolean;
+      class function RegisterSale(ASaleType: integer; ACheck: TCheckTab; discount: TDiscount): boolean;
+      class function CashActions(summ: double; actionType: integer): boolean;
+      //1 == income 2 == outcome 3 == encashment
+	  class function GetDiscount(seria: integer; number: integer): TDiscount; overload;
+	  class function GetDiscount(key: string): TDiscount; overload;
+   end;
+
+implementation
+
+uses
+  db_comps_additional, vars, Vcl.Dialogs, System.SysUtils, ComObj, //Excel_TLB,
+  System.DateUtils;
+
+{ TDbProcs }
+
+class function TDbProcs.CloseSession: boolean;
+var
+   adc: TDBCompsAddit;
+begin
+   adc := TDBCompsAddit.Create(BASE_PATH);
+   if not adc.Init then
+   begin
+      ShowMessage('Cant init additional db comps.');
+      adc.Destroy;
+      result := false;
+      Exit;
+   end;
+   with adc.query do
+   begin
+      SQL.Text := 'UPDATE SESSIONS SET dt_end = :dt WHERE id = :sess_id';
+      ParamByName('sess_id').AsInteger := SESS_ID;
+      ParamByName('dt').AsDateTime := IncSecond(Now);
+      try
+         ExecSQL;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Updating statement failed. Error: ' + E.Message);
+            result := false;
+            adc.Destroy;
+            exit;
+         end;
+      end;
+      Transaction.Commit;
+   end;
+   SESS_ID := -2;
+   result := true;
+   adc.Destroy;
+end;
+
+class function TDbProcs.GetDiscount(key: string): TDiscount;
+begin
+	result.id := -1;
+	result.amount := 10;
+	result.key := key;
+end;
+
+class function TDbProcs.GetDiscount(seria: integer; number: integer): TDiscount;
+var
+   adc: TDBCompsAddit;
+begin
+   adc := TDBCompsAddit.Create(BASE_PATH);
+   if (not adc.Init) then
+   begin
+      ShowMessage('Cant init additional db comps.');
+      result.id := 0;
+      result.amount := 0;
+      adc.Destroy;
+      Exit;
+   end;
+   with adc.query do
+   begin
+      if Transaction.Active then
+         Transaction.Rollback;
+      Transaction.StartTransaction;
+      SQL.Text := 'SELECT id, amount FROM discounts WHERE seria = :seria AND number = :number AND used = 0';
+      ParamByName('seria').AsInteger := seria;
+      ParamByName('number').AsInteger := number;
+      try
+         Open;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Ќе удалось выполнить запрос! ¬озможно эта верси€ базы данных не знает о скидках!');
+            result.id := 0;
+            result.amount := 0;
+            Exit;
+         end;
+      end;
+      if (RecordCount = 0) or (FieldByName('amount').IsNull) then
+      begin
+         ShowMessage('Ќе удалось найти такую карту, либо она уже была использована!');
+         result.id := 0;
+         result.amount := 0;
+         Close;
+         Exit;
+      end;
+      result.id := FieldByName('id').AsInteger;
+      result.amount := FieldByName('amount').AsFloat;
+      Close;
+   end;
+end;
+
+class function TDbProcs.CashActions(summ: double; actionType: integer): boolean;
+var
+   adc: TDBCompsAddit;
+   dt_start, dt_curr: TDateTime;
+   id: integer;
+begin
+   adc := TDBCompsAddit.Create(BASE_PATH);
+   if not adc.Init then
+   begin
+      ShowMessage('Cant init additional db comps.');
+      result := false;
+      adc.Destroy;
+      Exit;
+   end;
+   with adc.query do
+   begin
+      if Transaction.Active then
+         Transaction.Rollback;
+      Transaction.StartTransaction;
+      SQL.Text := 'INSERT INTO Cash_actions (cash, dt, action_type, sess_id) ' +
+         'VALUES (:cash, CURRENT_TIMESTAMP, :action_type, :sess_id)';
+      ParamByName('cash').AsFloat := summ;
+      ParamByName('action_type').AsInteger := actionType;
+      ParamByName('sess_id').AsInteger := SESS_ID;
+      try
+         ExecSQL;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Insertion statement failed! Error: ' + E.Message);
+            result := false;
+            Transaction.Rollback;
+            Exit;
+         end;
+      end;
+      Transaction.Commit;
+   end;
+   adc.Destroy;
+end;
+
+class function TDbProcs.InitSession: boolean;
+var
+   adc: TDBCompsAddit;
+   dt_start, dt_curr: TDateTime;
+   id: integer;
+begin
+   adc := TDBCompsAddit.Create(BASE_PATH);
+   if not adc.Init then
+   begin
+      ShowMessage('Cant init additional db comps.');
+      result := false;
+      adc.Destroy;
+      Exit;
+   end;
+   with adc.query do
+   begin
+      SQL.Text := 'SELECT FIRST 1 * FROM Sessions ORDER BY dt_start DESC';
+      try
+         Open;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Selection statement failed. Error: ' + E.Message);
+            result := false;
+            adc.Destroy;
+            exit;
+         end;
+      end;
+      if (RecordCount = 0) or Fields[0].IsNull then
+      begin
+         SESS_ID := 0;
+         adc.Destroy;
+         result := true;
+         Exit;
+      end
+      else if FieldByName('dt_end').IsNull then
+      begin
+         dt_start := FieldByName('dt_start').AsDateTime;
+         dt_curr := Now;
+         if (IncMinute(dt_start, 1438) <= dt_curr) then
+         begin
+            id := FieldByName('id').AsInteger;
+            Close;
+            SQL.Text := 'UPDATE SESSIONS SET dt_end = :dt WHERE ID = :id';
+            ParamByName('dt').AsDateTime := IncMinute(dt_start, 1438);
+            ParamByName('id').AsInteger := id;
+            try
+               ExecSQL;
+            except
+               on E:Exception do
+               begin
+                  ShowMessage('Cant execute update statement. Error: ' + E.Message);
+                  result := false;
+                  adc.Destroy;
+                  Exit;
+               end;
+            end;
+            SESS_ID := -2;
+            result := true;
+            exit;
+            adc.Destroy;
+         end;
+         SESS_ID := FieldByName('id').AsInteger;
+         result := true;
+         exit;
+         adc.Destroy;
+      end
+      else
+      begin
+         SESS_ID := -2;
+         exit;
+         adc.Destroy;
+      end;
+   end;
+   result := true;
+   adc.Destroy;
+end;
+
+class function TDbProcs.OpenSession: boolean;
+var
+   adc: TDBCompsAddit;
+begin
+   adc := TDBCompsAddit.Create(BASE_PATH);
+   if not adc.Init then
+   begin
+      ShowMessage('Cant init additional db comps.');
+      result := false;
+      adc.Destroy;
+      Exit;
+   end;
+   with adc.query do
+   begin
+      SQL.Text := 'INSERT INTO Sessions (ID) VALUES (0)';
+      try
+         ExecSQL;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Insertion statement failed. Error: ' + E.Message);
+            result := false;
+            adc.Destroy;
+            exit;
+         end;
+      end;
+      Transaction.Commit;
+      SQL.Text := 'SELECT gen_id(GEN_SESS_ID, 0) FROM rdb$database';
+      try
+         Open;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Selection statement failed.Error: ' + E.Message);
+            result := false;
+            adc.Destroy;
+            exit;
+         end;
+      end;
+      SESS_ID := Fields[0].AsInteger;
+   end;
+   result := true;
+   adc.Destroy;
+end;
+
+class function TDbProcs.RegisterSale(ASaleType: integer;
+  ACheck: TCheckTab; discount: TDiscount): boolean;
+var
+   adc: TDBCompsAddit;
+   sale_id: integer;
+   i: integer;
+begin
+   if SESS_ID = 0 then
+   begin
+      ShowMessage('—есси€ в базе данных не инициализированна. Ќе удаетс€ совершить продажу.');
+      Result := false;
+      Exit;
+   end;
+   result := false;
+   adc := TDBCompsAddit.Create(BASE_PATH);
+   if not adc.Init then
+   begin
+      ShowMessage('Cant init additional db comps.');
+      result := false;
+      adc.Destroy;
+      Exit;
+   end;
+   with adc.query do
+   begin
+      if Transaction.Active then
+		 Transaction.Rollback;
+	  if (discount.id = 0) and (discount.key <> '') then
+	  begin
+		  SQL.Text := 'INSERT INTO discounts (amount, key) VALUES (10, :keyS);';
+		  ParamByName('keyS').AsString := discount.key;
+		  ExecSQL;
+		  SQL.Text := 'SELECT gen_id(GEN_DISCOUNTS_ID, 0) FROM rdb$database;';
+
+      end;
+      SQL.Text := 'INSERT INTO Sales (dt, sess_id, sale_type, discount_id) VALUES (CURRENT_TIMESTAMP, :sess_id, :sale_type, :discount_id)';
+      ParamByName('sess_id').AsInteger := SESS_ID;
+      ParamByName('sale_type').AsInteger := ASaleType;
+      ParamByName('discount_id').AsInteger := discount.id;
+      try
+         ExecSQL;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Insertion statement failed. Error: ' + E.Message);
+            result := false;
+            Transaction.Rollback;
+            adc.Destroy;
+            Exit;
+         end;
+      end;
+
+      SQL.Text := 'SELECT gen_id(GEN_SALES_ID, 0) FROM rdb$database';
+      try
+         Open;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Selection statement failed. Error: ' + E.Message);
+            result := false;
+            Transaction.Rollback;
+            adc.Destroy;
+            Exit;
+         end;
+      end;
+      sale_id := Fields[0].AsInteger;
+      SQL.Text := 'INSERT INTO Sale_goods(sale_id, good_id, amount, action_amount) ' +
+         'VALUES (:sale_id, :good_id, :amount, :action_amount)';
+      for i := 0 to high(ACheck.goods) do
+      with ACheck.goods[i] do
+      begin
+         ParamByName('sale_id').AsInteger := sale_id;
+         ParamByName('good_id').AsInteger := id;
+         ParamByName('amount').AsFloat := amount;
+         ParamByName('action_amount').AsFloat := actionAmount;
+         try
+            ExecSQL;
+         except
+            on E:Exception do
+            begin
+               ShowMessage('Insertion statement failed. Error: ' + E.Message);
+               result := false;
+               Transaction.Rollback;
+               adc.Destroy;
+               Exit;
+            end;
+         end;
+      end;
+      SQL.Text := 'UPDATE discounts SET used = 1 WHERE id = :discount_id';
+      ParamByName('discount_id').AsInteger := discount.id;
+      try
+         ExecSQL;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Update failed. Error: ' + E.Message);
+            result := false;
+            Transaction.Rollback;
+            adc.Destroy;
+            Exit;
+         end;
+      end;
+      Transaction.Commit;
+      result := true;
+   end;
+   adc.Destroy;
+end;
+
+end.

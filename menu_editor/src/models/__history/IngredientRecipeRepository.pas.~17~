@@ -1,0 +1,84 @@
+unit IngredientRecipeRepository;
+
+interface
+
+uses
+	IngredientRecipe;
+
+type
+	TIngredientRecipeRepository = class
+		class function GetAllForIngredient(ABaseName: string; AIngredientId: integer): TIngredientRecipeArray;
+	end;
+
+implementation
+
+uses
+	db_comps_additional, SysUtils, Good, Ingredient, Measure;
+{ TRecipeRepository }
+
+class function TIngredientRecipeRepository.GetAllForIngredient(
+	ABaseName: string; AIngredientId: integer): TIngredientRecipeArray;
+var
+	adc: TDBCompsAddit;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := nil;
+		raise Exception.Create('TRecipeRepository.GetAllForGood(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text :=
+			'SELECT ' +
+				'r.id as r_id, r.amount as r_amount, ' +
+				'i.id as i_id, i.caption as i_caption, i.createdAt as i_createdAt, ' +
+				'i.expiredAt as i_expiredAt, ' +
+				'm.id as m_id, m.caption as m_caption ' +
+			'FROM ' +
+				'ingredient_recipes r INNER JOIN ingredients i ON r.part_id = i.id ' +
+				'INNER JOIN measures m ON i.measure_id = m.id ' +
+			'WHERE ' +
+				'r.src_id = :src_id AND r.expiredAt is NULL ' +
+			'ORDER BY r.id';
+		ParamByName('src_id').AsInteger := AIngredientId;
+		try
+			Open;
+		except
+			on E:Exception do
+			begin
+				result := nil;
+				raise Exception.Create(
+					'TRecipeRepository.GetAllForGood(); Can not execute query! Error: ' + E.Message
+				);
+				adc.Destroy;
+				Exit;
+			end;
+		end;
+		while not EOF do
+		begin
+			setlength(result, length(result) + 1);
+			result[high(result)] := TIngredientRecipe.Create(
+				FieldByName('r_id').AsInteger,
+				TGood.Create(AGoodId),
+				TIngredient.Create(
+					FieldByName('i_id').AsInteger,
+					FieldByName('i_caption').AsString,
+					FieldByName('i_createdAt').AsDateTime,
+					FieldByName('i_expiredAt').AsDateTime,
+					TMeasure.Create(
+						FieldByName('m_id').AsInteger,
+						FieldByName('m_caption').AsString
+					)
+				),
+				FieldByName('r_amount').AsFloat
+			);
+			Next;
+		end;
+	end;
+	adc.Destroy;
+end;
+
+end.

@@ -1,0 +1,284 @@
+unit Good;
+
+interface
+
+type
+
+	TGood = class
+	public
+		Id: integer;
+		OnAction: integer;
+		Price: double;
+		Caption: string;
+		ParentCat: integer;
+		Flag: integer;
+		GoodId: integer;
+	public
+		function Copy(): TGood;
+		constructor Create(AId, AOnAction, AParentCat, AFlag: integer;
+			APrice: double; ACaption: string); overload;
+		constructor Create(AId, AOnAction, AParentCat, AFlag: integer;
+			APrice: double; ACaption: string; AGoodId: integer); overload;
+		constructor Create(AId: integer); overload;
+		constructor Create; overload;
+		constructor Create(AId: integer; ACaption: string); overload;
+		function SaveUpdate(ABaseName: string): boolean;
+		function Insert(ABaseName: string): boolean;
+		function Disable(ABaseName: string): boolean;
+	end;
+
+	TGoodArray = array of TGood;
+
+	TPGood = ^TGood;
+
+	TXLGood = class(TGood)
+	public
+		Sold: double;
+		SoldAction: double;
+		SoldDiscount: double;
+	public
+		constructor Create(AId, AOnAction, AParentCat, AFlag: integer;
+			APrice: double; ACaption: string; ASold, ASoldAction,
+			ASoldDiscount: double); overload;
+		constructor Create(AGood: TGood); overload;
+		constructor Create; overload;
+	end;
+
+	TXLGoodArray = array of TXLGood;
+
+implementation
+uses
+	db_comps_additional, SysUtils, vars, GoodRepository;
+
+constructor TGood.Create(AId, AOnAction, AParentCat, AFlag: integer; APrice: double; ACaption: string);
+begin
+	Id := AId;
+	OnAction := AOnAction;
+	ParentCat := AParentCat;
+	Flag := AFlag;
+	Price := APrice;
+	Caption := ACaption;
+end;
+
+constructor TGood.Create;
+begin
+	Id := -1;
+end;
+
+constructor TGood.Create(AId: integer);
+begin
+	Id := AId;
+end;
+
+function TGood.Disable(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+	tmpStr: string;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := false;
+		raise Exception.Create('TGood.Disable(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text :=
+			'UPDATE priced_goods ' +
+			'SET expiredAt = CURRENT_TIMESTAMP ' +
+			'WHERE good_id = :id AND expiredAt is null';
+		ParamByName('id').AsInteger := Id;
+		try
+			Open;
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+				'TGood.Disable(); Can not execute query! Error: ' + E.Message
+			);
+				adc.Destroy;
+				Exit;
+			end;
+		end;
+	end;
+	adc.Destroy;
+	result := true;
+end;
+
+function TGood.Insert(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+	tmpStr: string;
+	goodId: integer;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := false;
+		raise Exception.Create('TGood.Insert(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		if (Id = -1) then
+		begin
+			SQL.Text :=
+			'INSERT INTO ' +
+				'GOODS (caption, parent_cat, flag) ' +
+			Format(
+				'VALUES(%s, %d, %d);',
+				[
+					#39 + Caption + #39,
+					ParentCat, Flag
+				]
+			);
+			try
+				Open;
+			except
+				on E:Exception do
+				begin
+					result := false;
+					raise Exception.Create(
+						'TGood.Insert() Can not execute query! Error: ' + E.Message
+					);
+					adc.Destroy;
+					exit;
+				end;
+			end;
+			SQL.Text := 'SELECT gen_id(GEN_GOODS_ID, 0) FROM rdb$database';
+			try
+				Open;
+			except
+				on E:Exception do
+				begin
+					result := false;
+					raise Exception.Create(
+						'TGoodInsert() Can not execute query! Error: ' + E.Message
+					);
+					adc.Destroy;
+					exit;
+				end;
+			end;
+			Id := Fields[0].AsInteger;
+		end;
+		//updating caption
+		SQL.Text :=
+		'UPDATE ' +
+			'GOODS ' +
+		'SET caption = :caption, flag = :flag ' +
+		'WHERE id = ' + IntToStr(id);
+		ParamByName('caption').AsString := Caption;
+		try
+			Open;
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+					'TGood.Insert() Can not execute query! Error: ' + E.Message
+				);
+				adc.Destroy;
+				exit;
+			end;
+		end;
+
+		tmpStr := StringReplace(
+			PriceToStr(
+				Price
+			),
+			',', '.', [rfReplaceAll]
+		);
+		SQL.Text := 'INSERT INTO PRICED_GOODS (price, action_able, good_id) ' +
+					Format(
+						'VALUES(%s, %d, %d);',
+						[
+							tmpStr, OnAction, Id
+						]
+					);
+		try
+			Open;
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+				'TGood.Insert(); Can not execute query! Error: ' + E.Message
+			);
+				adc.Destroy;
+				Exit;
+			end;
+		end;
+	end;
+	adc.Destroy;
+	Id := TGoodRepository.GetLastInsertedId(ABaseName);
+	result := Id <> -1;
+end;
+
+function TGood.SaveUpdate(ABaseName: string): boolean;
+	var
+		adc: TDBCompsAddit;
+	begin
+		result := Disable(ABaseName);
+		result := result and Insert(ABaseName);
+	end;
+
+{ TXLGood }
+
+constructor TXLGood.Create(AId, AOnAction, AParentCat, AFlag: integer;
+  APrice: double; ACaption: string; ASold, ASoldAction, ASoldDiscount: double);
+begin
+	inherited Create(AId, AOnAction, AParentCat, AFlag, APrice, ACaption);
+	Sold := ASold;
+	SoldDiscount := ASoldDiscount;
+	SoldAction := ASoldAction;
+end;
+
+constructor TXLGood.Create;
+begin
+	inherited Create;
+end;
+
+constructor TXLGood.Create(AGood: TGood);
+begin
+	with AGood do
+	begin
+		inherited Create(Id, OnAction, ParentCat, Flag, Price, Caption);
+	end;
+end;
+
+function TGood.Copy(): TGood;
+begin
+	result := TGood.Create(
+		Id,
+		OnAction,
+		ParentCat,
+		Flag,
+		Price,
+		Caption,
+		GoodId
+	);
+end;
+
+constructor TGood.Create(AId: integer; ACaption: string);
+begin
+	Id := AId;
+	Caption := ACaption;
+end;
+
+constructor TGood.Create(AId, AOnAction, AParentCat, AFlag: integer;
+  APrice: double; ACaption: string; AGoodId: integer);
+begin
+	Id := AId;
+	OnAction := AOnAction;
+	ParentCat := AParentCat;
+	Flag := AFlag;
+	Price := APrice;
+	Caption := ACaption;
+	GoodId := AGoodId;
+end;
+
+end.

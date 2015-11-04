@@ -1,0 +1,21 @@
+unit Good;
+
+interface
+
+type
+   TGood = class
+   private
+   public
+      id: integer;
+      onAction: integer;
+      price: double;
+      caption: string;
+      parentCat: integer;
+      flag: integer;
+   end;
+
+   end;
+
+implementation
+
+end.

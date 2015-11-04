@@ -1,0 +1,426 @@
+unit DBMenu;
+
+interface
+uses Vcl.ComCtrls, System.Classes, System.UITypes;
+type
+   TDBCat = class;
+   TDBMenu = class;
+   TDBObj = class
+      isGood: Boolean;
+      id: integer;
+      caption: string;
+      parent: TDBCat;
+      constructor Create(AId: integer; ACaption: string);
+   end;
+   PDBObj = ^TDBObj;
+
+   TDBCat = class(TDBObj)
+      childs: array of TDBCat;
+      goods: array of TDBObj;
+      arrId: Integer;
+      menu: TDBMenu;
+      constructor Create(AId: Integer; ACaption: string; AMenu: TDBMenu);
+      function AppendChild(ADBCat: TDBCat): integer;
+      function AppendGood(AId: integer; ACaption: string): integer;
+      procedure BuildSubTree;
+      procedure Save(ABaseName: string);
+      destructor Destroy; override;
+   end;
+
+   TDbMenu = class
+   private
+      FTV: TTreeView;
+      FBaseName: string;
+      root: TDBCat;
+      procedure BuildTVSubTree(ATVNode: TTreeNode; ADBObj: TDBObj);
+   public
+      constructor Create(ABaseName: string);
+      procedure SyncWithTV(ATreeView: TTreeView);
+      destructor Destroy; override;
+      procedure Save;
+   public
+      procedure miAddClick(Sender: TObject);
+      procedure miRenameClick(Sender: TObject);
+      procedure miRemoveClick(Sender: TObject);
+      procedure tvCustomDrawItem(Sender: TCustomTreeView;
+        Node: TTreeNode; State: TCustomDrawState; var DefaultDraw: Boolean);
+   end;
+
+implementation
+
+uses
+  db_comps_additional, Vcl.Dialogs, SysUtils;
+
+{ TDbMenu }
+
+constructor TDBCat.Create(AId: integer; ACaption: string; AMenu: TDBMenu);
+begin
+   inherited Create(AId, ACaption);
+   setlength(childs, 0);
+   setlength(goods, 0);
+   parent := nil;
+   menu := AMenu;
+   isGood := False;
+end;
+
+destructor TDBCat.Destroy;
+var
+   i: integer;
+begin
+   for i := 0 to high(goods) do
+      FreeAndNil(goods[i]);
+   setlength(goods, 0);
+   for i := 0 to high(childs) do
+      if childs[i] <> nil then
+         childs[i].Destroy;
+   setlength(childs, 0);
+end;
+
+procedure TDBCat.Save(ABaseName: string);
+var
+   adc: TDBCompsAddit;
+   i: integer;
+begin
+   adc := TDBCompsAddit.Create(ABaseName);
+   if not adc.Init then
+   begin
+      ShowMessage('Cant create adc!');
+      adc.Destroy;
+      Exit;
+   end;
+   with adc.query do
+   begin
+      if transaction.Active then
+         transaction.Commit;
+      transaction.StartTransaction;
+      if self.caption = 'root' then
+      begin
+         for i := 0 to High(childs) do
+         begin
+            SQL.Text := 'INSERT INTO Cats(caption, parent_id) VALUES (:caption, :parent_id)';
+            ParamByName('caption').AsString := childs[i].caption;
+            ParamByName('parent_id').AsInteger := 0;
+//            ExecQuery;
+            ExecSQL;
+            SQL.Text := 'SELECT gen_id(GEN_CATS_ID, 0) from rdb$database;';
+//            ExecQuery;
+            Open;
+            self.id := Fields[0].AsInteger;
+            SQL.Text := 'Update CATS SET parent_id = :id WHERE id = :id';
+            ParamByName('id').AsInteger := self.id;
+            Close;
+//            ExecQuery;
+            ExecSQL;
+            childs[i].id := self.id;
+            childs[i].Save(ABaseName);
+         end;
+         Transaction.Commit;
+         exit;
+      end;
+      for i := 0 to high(childs) do
+      begin
+         SQL.Text := 'INSERT INTO CATS(caption, parent_id) VALUES (:caption, :parent_id)';
+         ParamByName('caption').AsString := childs[i].Caption;
+         ParamByname('parent_id').AsInteger := self.id;
+//         ExecQuery;
+         ExecSQL;
+         SQL.Text := 'SELECT gen_id(GEN_CATS_ID, 0) from rdb$database;';
+//         ExecQuery;
+         Open;
+         childs[i].id := Fields[0].AsInteger;
+         Close;
+      end;
+      for i := 0 to High(goods) do
+      begin
+         SQL.Text := 'UPDATE GOODS SET parent_cat = :parent_cat WHERE id = :id';
+         ParamByName('parent_id').AsInteger := self.id;
+         ParamByName('id').AsInteger := goods[i].id;
+//         ExecQuery;
+         ExecSQL;
+      end;
+      if Transaction.Active then
+         Transaction.Commit;
+      adc.Destroy;
+   end;
+end;
+
+function TDBCat.AppendChild(ADBCat: TDBCat): integer;
+begin
+   setlength(childs, length(childs) + 1);
+   childs[high(childs)] := ADBCat;
+   childs[high(childs)].arrId := High(childs);
+   childs[high(childs)].parent := self;
+   result := high(childs);
+end;
+
+function TDBCat.AppendGood(AId: integer; ACaption: string): integer;
+begin
+   setlength(goods, length(goods) + 1);
+   goods[high(goods)] := TDBObj.Create(AId, ACaption);
+   result := high(goods);
+end;
+
+procedure TDBCat.BuildSubTree;
+var
+   adc: TDBCompsAddit;
+   idx: integer;
+begin
+   adc := TDBCompsAddit.Create(menu.FBaseName);
+   if not adc.Init then
+   begin
+      ShowMessage('Cant create additional comps!');
+      exit;
+   end;
+   with adc.query do
+   begin
+      SQL.Text := 'SELECT * FROM Cats WHERE parent_id = :id AND id <> parent_id AND actual = 1';
+      ParamByName('id').AsInteger := id;
+      try
+         ExecQuery;//Open;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Cant perform select statement! Error: ' + E.Message);
+            Exit;
+         end;
+      end;
+      while not EOF do
+      begin
+         idx := AppendChild(
+            TDBCat.Create(
+               FieldByName('id').AsInteger,
+               FieldByName('caption').AsString,
+               menu
+            )
+         );
+         childs[idx].BuildSubTree;
+         Next;
+      end;
+      Close;
+      SQL.Text := 'SELECT * FROM Goods WHERE parent_cat = :id and actual = 1';
+      ParamByName('id').AsInteger := id;
+      try
+         ExecQuery;//Open;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Cant perform selection statement! Error: ' + E.Message);
+            Exit;
+         end;
+      end;
+      while not EOF do
+      begin
+         AppendGood(
+            FieldByName('id').AsInteger,
+            FieldByName('caption').AsString
+         );
+         Next;
+      end;
+      Close;
+   end;
+   adc.Destroy;
+end;
+
+procedure TDbMenu.BuildTVSubTree(ATVNode: TTreeNode; ADBObj: TDBObj);
+var
+   i: integer;
+   tmpCat: TDBCat;
+begin
+   if ADBObj.isGood then
+      exit;
+   tmpCat := TDBCat(ADBObj);
+   for i := 0 to High(tmpCat.childs) do
+   begin
+      BuildTVSubTree(
+         FTV.Items.AddChildObjectFirst(
+            ATVNode,
+            tmpCat.childs[i].caption,
+            TDBCat(ADBObj).childs[i]
+         ),
+         TDBCat(ADBObj).childs[i]
+      );
+   end;
+   for i := 0 to High(tmpCat.goods) do
+      FTV.Items.AddChildObjectFirst(
+         ATVNode,
+         tmpCat.goods[i].caption,
+         TDBCat(ADBObj).goods[i]
+      );
+end;
+
+constructor TDbMenu.Create(ABaseName: string);
+var
+   adc: TDBCompsAddit;
+   idx: integer;
+begin
+   FBaseName := ABaseName;
+   adc := TDBCompsAddit.Create(ABaseName);
+   root := TDBCat.Create(0, 'root', self);
+   root.parent := nil;
+   if not adc.Init then
+   begin
+      ShowMessage('Cant create additional comps!');
+      Exit;
+   end;
+   with adc.query do
+   begin
+      SQL.Text := 'SELECT * FROM Cats WHERE parent_id = id AND actual = 1';
+      try
+         ExecQuery;//Open;
+      except
+         on E:Exception do
+         begin
+            ShowMessage('Cant perform selection statement from base! Error: ' + E.Message);
+            adc.Destroy;
+            Exit;
+         end;
+      end;
+      while not EOF do
+      begin
+         idx := root.AppendChild(
+            TDBCat.Create(
+               FieldByName('id').AsInteger,
+               FieldByName('caption').AsString,
+               self
+            )
+         );
+         root.childs[idx].BuildSubTree;
+         Next;
+      end;
+      Close;
+   end;
+end;
+
+destructor TDbMenu.Destroy;
+begin
+   root.Destroy;
+end;
+
+procedure TDbMenu.miAddClick(Sender: TObject);
+var
+   tmpObj: TDBObj;
+   tmpCat: TDBCat;
+   idx, i: integer;
+   s: string;
+begin
+   tmpObj := TDBCat(FTV.Selected.Data);
+   if tmpObj.isGood then
+      exit;
+   tmpCat := TDBCat(tmpObj);
+   if not InputQuery('Редактор меню', 'Введите название новой подкатегории!', s) then
+      Exit;
+   idx := -1;
+   for i := 0 to high(tmpCat.childs) do
+      if tmpCat.childs[i] = nil then
+      begin
+         idx := i;
+         break;
+      end;
+   if idx = -1 then
+   begin
+      setlength(tmpCat.childs, length(tmpCat.childs) + 1);
+      idx := High(tmpCat.childs);
+   end;
+   tmpCat.childs[idx] := TDBCat.Create(-1, s, tmpCat.Menu);
+   with tmpCat.childs[idx] do
+   begin
+      arrId := idx;
+      parent := TDBCat(tmpCat.parent).childs[tmpCat.arrId];
+      FTV.Items.AddChildObjectFirst(FTV.Selected, s, tmpCat.childs[idx]);
+   end;
+end;
+
+procedure TDbMenu.miRemoveClick(Sender: TObject);
+var
+   tmpObj: TDBObj;
+   tmpCat: TDBCat;
+   i: integer;
+begin
+   tmpObj := TDBObj(FTV.Selected.Data);
+   if (tmpObj.isGood) then
+      exit;
+   tmpCat := TDBCat(tmpObj);
+   TDBCat(tmpCat.parent).childs[tmpCat.arrId] := nil;
+//   for i := 0 to high(TDBCat(tmpCat.parent).childs) do
+//   begin
+//      if TDBCat(tmpCat.parent).childs[i] = tmpCat then
+//      begin
+//         TDBCat(tmpCat.parent).childs[i] := nil;
+//         break;
+//      end;
+//   end;
+   FTV.Items.Delete(FTV.Selected);
+   tmpCat.Destroy;
+end;
+
+procedure TDbMenu.miRenameClick(Sender: TObject);
+var
+   s: string;
+begin
+   s := '';
+   if TDBObj(FTV.Selected.Data).isGood then
+      exit;
+   if not InputQuery('Редактор меню', 'Введите новое название для категории!', s) then
+      exit;
+   TDBObj(FTV.Selected.Data).caption := s;
+   FTV.Selected.Text := s;
+end;
+
+procedure TDbMenu.Save;
+var
+   adc: TDBCompsAddit;
+begin
+   adc := TDBCompsAddit.Create(FBaseName);
+   if not adc.Init then
+   begin
+      ShowMessage('Все очень плохо.');
+      adc.Destroy;
+      Exit;
+   end;
+   with adc.query do
+   begin
+      SQL.Text := 'DELETE FROM CATS';
+      ExecQuery;//ExecSQL;
+      adc.trans.Commit;
+   end;
+
+   root.Save(FBaseName);
+end;
+
+procedure TDbMenu.SyncWithTV(ATreeView: TTreeView);
+var
+   i: integer;
+begin
+   FTV := ATreeView;
+   FTV.OnCustomDrawItem := tvCustomDrawItem;
+   for i := 0 to High(root.childs) do
+      BuildTVSubTree(
+         FTV.Items.AddChildObjectFirst(
+            nil,
+            root.childs[i].caption,
+            root.childs[i]
+         ),
+         root.childs[i]
+      );
+end;
+
+procedure TDbMenu.tvCustomDrawItem(Sender: TCustomTreeView; Node: TTreeNode;
+  State: TCustomDrawState; var DefaultDraw: Boolean);
+begin
+//   if TDBObj(Node.Data).isGood then
+//      Node.Text := 'Товар: '
+//   else
+//      Node.Text := 'Категория: ';
+//   Node.Text := Node.Text + TDBObj(Node.Data).caption;
+end;
+
+{ TDBObj }
+
+constructor TDBObj.Create(AId: integer; ACaption: string);
+begin
+   id := AId;
+   caption := ACaption;
+   isGood := true;
+end;
+
+end.

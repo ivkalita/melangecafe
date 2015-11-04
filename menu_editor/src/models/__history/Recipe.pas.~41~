@@ -1,0 +1,105 @@
+unit Recipe;
+
+interface
+
+uses
+	Ingredient, Good;
+
+type
+	TRecipe = class
+	public
+		Id: integer;
+		Good: TGood;
+		Ingredient: TIngredient;
+		CreatedAt: TDateTime;
+		ExpiredAt: TDateTime;
+		Amount: double;
+		constructor Create(
+			AId: integer; AGood: TGood; AIngredient: TIngredient;
+			ACreatedAt, AExpiredAt: TDateTime; AAmount: double); overload;
+		constructor Create(
+			AId: integer; AGood: TGood; AIngredient: TIngredient; AAmount: double); overload;
+		constructor Create(AGood: TGood); overload;
+		constructor Create(AIngredient: TIngredient; AAmount: double); overload;
+		function Insert(ABaseName: string): boolean;
+		function Delete(ABaseName: string): boolean;
+	end;
+
+	TPRecipe = ^TRecipe;
+
+	TRecipeArray = array of TRecipe;
+
+implementation
+
+uses db_comps_additional, SysUtils;
+{ TRecipe }
+
+constructor TRecipe.Create(AId: integer; AGood: TGood; AIngredient: TIngredient;
+  AAmount: double);
+begin
+	Id := AId;
+	Good := AGood;
+	Ingredient := AIngredient;
+	Amount := AAmount;
+end;
+
+constructor TRecipe.Create(AGood: TGood);
+begin
+	Good := AGood;
+end;
+
+constructor TRecipe.Create(AIngredient: TIngredient; AAmount: double);
+begin
+	Ingredient := AIngredient;
+	Amount := AAmount;
+end;
+
+function TRecipe.Insert(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := false;
+		raise Exception.Create('TRecipe.Insert(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text :=
+			'INSERT INTO recipes (good_id, ingr_id, amount) VALUES (:good_id, :ingr_id, :amount);';
+		ParamByName('good_id').AsInteger := Good.Id;
+		ParamByName('ingr_id').AsInteger := Ingredient.Id;
+		ParamByName('amount').AsFloat := Amount;
+		try
+			ExecSQL();
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+					'TRecipe.Insert(); Can not execute insert query. Error: ' + E.Message
+				);
+				adc.Destroy;
+				Exit;
+            end;
+		end;
+		adc.Destroy;
+		result := true;
+    end;
+end;
+
+constructor TRecipe.Create(AId: integer; AGood: TGood; AIngredient: TIngredient;
+  ACreatedAt, AExpiredAt: TDateTime; AAmount: double);
+begin
+	Id := AId;
+	Good := AGood;
+	Ingredient := AIngredient;
+	CreatedAt := ACreatedAt;
+	ExpiredAt := AExpiredAt;
+	Amount := AAmount;
+end;
+
+end.

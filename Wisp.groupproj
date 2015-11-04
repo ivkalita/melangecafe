@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{72A7FDA1-BE0C-4469-90B2-425D2CBC0752}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="KKM_Wisp.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="menu_editor\MenuEditor.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="KKM_Wisp">
+        <MSBuild Projects="KKM_Wisp.dproj"/>
+    </Target>
+    <Target Name="KKM_Wisp:Clean">
+        <MSBuild Projects="KKM_Wisp.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="KKM_Wisp:Make">
+        <MSBuild Projects="KKM_Wisp.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="MenuEditor">
+        <MSBuild Projects="menu_editor\MenuEditor.dproj"/>
+    </Target>
+    <Target Name="MenuEditor:Clean">
+        <MSBuild Projects="menu_editor\MenuEditor.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="MenuEditor:Make">
+        <MSBuild Projects="menu_editor\MenuEditor.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="KKM_Wisp;MenuEditor"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="KKM_Wisp:Clean;MenuEditor:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="KKM_Wisp:Make;MenuEditor:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

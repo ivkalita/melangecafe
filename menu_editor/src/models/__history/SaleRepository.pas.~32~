@@ -1,0 +1,170 @@
+unit SaleRepository;
+
+interface
+
+uses Sale, Session;
+
+type
+	TSaleRepository = class
+        class function GetAllForSession(ABaseName: string; ASession: TSession): TSalesArray;
+    end;
+
+implementation
+
+{ TSaleRepository }
+
+uses db_comps_additional, SysUtils, Discount;
+
+class function TSaleRepository.GetAllForSession(ABaseName: string;
+  ASession: TSession): TSalesArray;
+var
+	adc: TDBCompsAddit;
+	query: string;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := nil;
+		raise Exception.Create('TSaleRepository.GetAllForSession Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	query :=
+		'SELECT' +
+		'	s.id as s_id, s.dt as s_dt, s.sale_type as s_st, d.id as d_id ' +
+		'FROM' +
+		'	sales s LEFT JOIN discounts d ON s.discount_id = d.id ' +
+		'WHERE' +
+		'	s.sess_id = :sess_id;';
+	with adc.query do
+	begin
+		SQL.Text := query;
+		ParamByName('sess_id').AsInteger := ASession.Id;
+        try
+			Open;
+		except
+			on E:Exception do
+			begin
+				result := nil;
+				raise Exception.Create('TSaleRepository.GetAllForSession(); Can not execute query! Error: ' + E.Message);
+				adc.Destroy;
+				Exit;
+			end;
+		end;
+		while (not eof) do
+		begin
+			setlength(result, length(result) + 1);
+			result[high(result)] := TSale.Create(
+				FieldByName('s_id').AsInteger,
+				FieldByName('s_dt').AsDateTime,
+				ASession,
+				Discount.Create(FieldByName('d_id').AsInteger),
+				FieldByName('s_st').AsInteger,
+
+			);
+        end;
+    end;
+
+	with adc.query do
+	begin
+		//get actual OR sold goods WHERE flag = 1 order by id
+		SQL.Text := query;
+//		ParamByName('flag').AsInteger := 1;
+		ParamByName('sess_id').AsInteger := ASessId;
+		try
+			Open;
+		except
+			on E:Exception do
+			begin
+				result := nil;
+				raise Exception.Create('TGoodRepository.GetForXL(); Can not execute query! Error: ' + E.Message);
+				adc.Destroy;
+				Exit;
+			end;
+		end;
+		while (not eof) do
+		begin
+			if (FieldByName('sum_amount').IsNull) then
+				sumAmount := 0
+			else
+				sumAmount := FieldByName('sum_amount').AsFloat;
+
+			if (FieldByName('sum_action_amount').IsNull) then
+				sumActionAmount := 0
+			else
+				sumActionAmount := FieldByName('sum_action_amount').AsFloat;
+
+			if (FieldByName('sum_amount_discount').IsNull) then
+				sumDiscountAmount := 0
+			else
+				sumDiscountAmount := FieldByName('sum_amount_discount').AsFloat;
+			if (FieldByName('id').AsInteger = 497) then
+			begin
+				sumAmount := sumAmount;
+			end;
+			sumAmount := sumAmount - sumDiscountAmount;
+			setlength(result, length(result) + 1);
+			result[high(result)] := TXLGood.Create(
+				FieldByName('id').AsInteger,
+				FieldByName('action_able').AsInteger,
+				FieldByName('parent_cat').AsInteger,
+				FieldByName('flag').AsInteger,
+				FieldByName('price').AsFloat,
+				FieldByName('caption').AsString,
+				sumAmount,
+				sumActionAmount,
+				sumDiscountAmount
+			);
+			Next;
+		end;
+		Close;
+
+		SQL.Text := query;
+		ParamByName('flag').AsInteger := 2;
+		ParamByName('sess_id').AsInteger := ASessId;
+		try
+			Open;
+		except
+			on E:Exception do
+			begin
+				result := nil;
+				raise Exception.Create('TGoodRepository.GetForXL(); Can not execute query! Error: ' + E.Message);
+				adc.Destroy;
+				Exit;
+			end;
+		end;
+		while (not eof) do
+		begin
+			if (FieldByName('sum_amount').IsNull) then
+				sumAmount := 0
+			else
+				sumAmount := FieldByName('sum_amount').AsFloat;
+			if (FieldByName('sum_action_amount').IsNull) then
+				sumActionAmount := 0
+			else
+				sumActionAmount := FieldByName('sum_action_amount').AsFloat;
+			if (FieldByName('sum_amount_discount').IsNull) then
+				sumDiscountAmount := 0
+			else
+				sumDiscountAmount := FieldByName('sum_amount_discount').AsFloat;
+			sumAmount := sumAmount - sumDiscountAmount;
+			setlength(result, length(result) + 1);
+			result[high(result)] := TXLGood.Create(
+				FieldByName('id').AsInteger,
+				FieldByName('action_able').AsInteger,
+				FieldByName('parent_cat').AsInteger,
+				FieldByName('flag').AsInteger,
+				FieldByName('price').AsFloat,
+				FieldByName('caption').AsString,
+				sumAmount,
+				sumActionAmount,
+				sumDiscountAmount
+			);
+			Next;
+		end;
+		Close;
+	end;
+	adc.Destroy;
+end;
+
+end.

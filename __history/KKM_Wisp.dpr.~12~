@@ -1,0 +1,24 @@
+program KKM_Wisp;
+
+uses
+  Vcl.Forms,
+  main in 'main.pas' {fmMain},
+  vars in 'vars.pas',
+  CheckTab in 'CheckTab.pas',
+  FprnM1C82_TLB in 'C:\Users\Arrokayo\Documents\RAD Studio\9.0\Imports\FprnM1C82_TLB.pas',
+  SaleType in 'SaleType.pas' {fmSaleType},
+  db_menu in 'db_menu.pas',
+  db_comps_additional in 'db_comps_additional.pas',
+  db_procs in 'db_procs.pas',
+  history in 'history.pas' {fmHistory};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TfmMain, fmMain);
+  Application.CreateForm(TfmSaleType, fmSaleType);
+  //  Application.CreateForm(TfmMenuEdit, fmMenuEdit);
+  Application.Run;
+end.

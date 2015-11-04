@@ -1,0 +1,361 @@
+unit main;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtDlgs, Vcl.StdCtrls, Vcl.ExtCtrls;
+
+type
+
+   TCat = record
+      caption: string;
+      id: integer;
+      parentId: integer;
+   end;
+
+   TGood = record
+      caption: string;
+      price: double;
+      parentCat: integer;
+   end;
+
+   TfmMain = class(TForm)
+      dlgfoScript: TOpenTextFileDialog;
+      dlgfsScript: TSaveTextFileDialog;
+      btnSaleShot: TButton;
+      btnMenuEdit: TButton;
+      btnGoodsEdit: TButton;
+    btnDiscounts: TButton;
+    Label1: TLabel;
+    Label2: TLabel;
+    Shape1: TShape;
+    btnMeasures: TButton;
+    btnIngredients: TButton;
+    btnSaleHistory: TButton;
+    btnIngredientHistory: TButton;
+    btnExportMenu: TButton;
+      procedure btnGenFromFileClick(Sender: TObject);
+      procedure btnSaleShotClick(Sender: TObject);
+      procedure btnMenuEditClick(Sender: TObject);
+	  procedure btnGoodsEditClick(Sender: TObject);
+	  procedure btnDiscountsClick(Sender: TObject);
+    procedure btnMeasuresClick(Sender: TObject);
+    procedure btnIngredientsClick(Sender: TObject);
+    procedure btnSaleHistoryClick(Sender: TObject);
+    procedure btnIngredientHistoryClick(Sender: TObject);
+    procedure btnExportMenuClick(Sender: TObject);
+   public
+      procedure GenMenu(AFileName: string);
+   end;
+
+var
+  fmMain: TfmMain;
+
+implementation
+
+{$R *.dfm}
+
+uses SaleShot, db_comps_additional, MenuEdit, fmGoodEdit, MenuDesigner,
+	fmDiscountEdit, Measures, Ingredients, SalesHistory, IngredientHistory,
+	Good, GoodRepository, Recipe, RecipeRepository, Ingredient, IngredientRepository,
+	IngredientRecipe, IngredientRecipeRepository;
+
+procedure TfmMain.btnDiscountsClick(Sender: TObject);
+var
+   dbName: string;
+begin
+   if dlgfoScript.Execute then
+      dbName := dlgfoScript.FileName
+   else
+      exit;
+   if not FileExists(dbName) then
+   begin
+      ShowMessage('Выбранного файла не существует!');
+      Exit;
+   end;
+   fmDiscountEditor := TfmDiscountEditor.Create(nil);
+   with fmDiscountEditor do
+   begin
+      Prepare(dbName);
+      ShowModal;
+   end;
+   FreeAndNil(fmDiscountEditor);
+end;
+
+procedure TfmMain.btnGenFromFileClick(Sender: TObject);
+var
+   fileName: string;
+begin
+   //
+   if dlgfoScript.Execute(Handle) then
+   begin
+      fileName := dlgfoScript.FileName;
+      if FileExists(fileName) then
+         GenMenu(fileName);
+   end;
+end;
+
+function CatSQL(ACat: TCat): string;
+begin
+   result := 'INSERT INTO Cats(caption, parent_id) VALUES (' + #39 + ACat.caption + #39 +
+            ', ' + IntToStr(ACat.parentId) +');';
+end;
+
+function GoodSQL(AGood: TGood): string;
+begin
+   result := 'INSERT INTO Goods(caption, price, parent_cat) VALUES (' + #39 +
+      AGood.caption + #39 + ', ' + FloatToStr(AGood.price) + ', ' + IntToStr(AGood.parentCat) + ');';
+end;
+
+procedure TfmMain.btnGoodsEditClick(Sender: TObject);
+var
+   dbName: string;
+begin
+   if dlgfoScript.Execute then
+      dbName := dlgfoScript.FileName
+   else
+      exit;
+   if not FileExists(dbName) then
+   begin
+      ShowMessage('Выбранного файла не существует!');
+      Exit;
+   end;
+   fmGoodEditor := TfmGoodEditor.Create(nil);
+   with fmGoodEditor do
+   begin
+      Prepare(dbName);
+	  ShowModal;
+   end;
+   FreeAndNil(fmMenuEditor);
+end;
+
+procedure TfmMain.btnIngredientHistoryClick(Sender: TObject);
+var
+	dbName: string;
+begin
+   with dlgfoScript do
+   begin
+	  Filter := '*.FDB';
+	  InitialDir := GetCurrentDir;
+	  if Execute then
+		 dbName := FileName
+	  else
+		 exit;
+   end;
+   if not FileExists(dbName) then
+   begin
+	  ShowMessage('Выбранного файла не существует!');
+	  Exit;
+   end;
+   IngredientHistory.show(dbName);
+
+end;
+
+procedure TfmMain.btnIngredientsClick(Sender: TObject);
+var
+   dbName: string;
+begin
+   if dlgfoScript.Execute then
+   begin
+	  dbName := dlgfoScript.FileName;
+	  if not FileExists(dbName) then
+	  begin
+		 ShowMessage('Выбранного файла не существует!');
+		 Exit;
+	  end;
+	  Ingredients.show(dbName);
+   end;
+end;
+
+procedure TfmMain.btnMeasuresClick(Sender: TObject);
+var
+   dbName: string;
+begin
+   if dlgfoScript.Execute then
+   begin
+	  dbName := dlgfoScript.FileName;
+	  if not FileExists(dbName) then
+	  begin
+		 ShowMessage('Выбранного файла не существует!');
+		 Exit;
+	  end;
+	  Measures.show(dbName);
+   end;
+end;
+
+procedure TfmMain.btnMenuEditClick(Sender: TObject);
+var
+   dbName: string;
+   fmMenuEditor1: TfmMenuDesigner;
+begin
+   if dlgfoScript.Execute then
+   begin
+	  dbName := dlgfoScript.FileName;
+	  if not FileExists(dbName) then
+	  begin
+		 ShowMessage('Выбранного файла не существует!');
+		 Exit;
+	  end;
+	  fmMenuEditor1 := TfmMenuDesigner.Create(nil);
+	  with fmMenuEditor1 do
+	  begin
+		 BaseName := dbName;
+		 ShowModal;
+	  end;
+	  FreeAndNil(fmMenuEditor1);
+   end;
+end;
+
+procedure TfmMain.btnSaleHistoryClick(Sender: TObject);
+var
+	dbName: string;
+begin
+   with dlgfoScript do
+   begin
+	  Filter := '*.FDB';
+	  InitialDir := GetCurrentDir;
+	  if Execute then
+		 dbName := FileName
+	  else
+		 exit;
+   end;
+   if not FileExists(dbName) then
+   begin
+	  ShowMessage('Выбранного файла не существует!');
+	  Exit;
+   end;
+   SalesHistory.show(dbName);
+end;
+
+procedure TfmMain.btnSaleShotClick(Sender: TObject);
+var
+   dbName: string;
+begin
+   with dlgfoScript do
+   begin
+	  Filter := '*.FDB';
+	  InitialDir := GetCurrentDir;
+	  if Execute then
+		 dbName := FileName
+	  else
+		 exit;
+   end;
+   if not FileExists(dbName) then
+   begin
+	  ShowMessage('Выбранного файла не существует!');
+	  Exit;
+   end;
+   fmSaleShot := TfmSaleShot.Create(nil);
+   with fmSaleShot do
+   begin
+      BaseName := dbName;
+	  ShowModal;
+      FreeAndNil(fmSaleShot);
+   end;
+end;
+
+procedure TfmMain.btnExportMenuClick(Sender: TObject);
+var
+	RowCount, ColCount: integer;
+	dbname: string;
+	arrData: Variant;
+	goods: TGoodArray;
+	recipes: TRecipeArray;
+	data: array of array of string;
+	i: integer;
+begin
+   with dlgfoScript do
+   begin
+	  Filter := '*.FDB';
+	  InitialDir := GetCurrentDir;
+	  if Execute then
+		 dbName := FileName
+	  else
+		 exit;
+   end;
+   if not FileExists(dbName) then
+   begin
+	  ShowMessage('Выбранного файла не существует!');
+	  Exit;
+   end;
+   recipes = TRecipeRepository.GetAll(dbname);
+   for i := 0 to high(recipes) do
+   begin
+	  setlength(data, length(data) + 1);
+	  setlength(data[high(data)], 1)
+	  data[high(data)][0] := recipes[i].Good.Caption;
+
+   end;
+
+
+
+
+  {create variant array where we'll copy our data}
+//  RowCount := sgHistory.RowCount;
+//  ColCount := sgHistory.ColCount;
+  arrData := VarArrayCreate([1, RowCount, 1, ColCount], varVariant);
+
+  {fill array}
+  for i := 1 to RowCount do
+    for j := 1 to ColCount do
+      arrData[i, j] := sgHistory.Cells[j-1, i-1];
+
+  {initialize an instance of Excel}
+  xls := CreateOLEObject('Excel.Application');
+
+  {create workbook}
+  wb := xls.Workbooks.Add;
+
+  {retrieve a range where data must be placed}
+  Range := wb.WorkSheets[1].Range[wb.WorkSheets[1].Cells[1, 1],
+                                  wb.WorkSheets[1].Cells[RowCount, ColCount]];
+
+  {copy data from allocated variant array}
+  Range.Value := arrData;
+
+  {show Excel with our data}
+  xls.Visible := True;
+end;
+
+procedure TfmMain.GenMenu(AFileName: string);
+var
+   inF, outF: TextFile;
+   catCnt: integer;
+   goodCnt: integer;
+   i, tmpId, tmpParentId: integer;
+   cats: array of TCat;
+   goods: array of TGood;
+   saveName: string;
+begin
+   if dlgfsScript.Execute then
+      saveName := dlgfsScript.FileName;
+   AssignFile(inF, AFileName);
+   AssignFile(outF, saveName);
+   Reset(inF);
+   Readln(inF, catCnt);
+   Rewrite(outF);
+   SetLength(cats, catCnt + 1);
+   for i := 1 to catCnt do
+      Readln(inF, cats[i].caption);
+   for i := 1 to catCnt do
+   begin
+      Readln(inF, tmpId, tmpParentId);
+      cats[tmpId].parentId := tmpParentId;
+   end;
+   Readln(inF, goodCnt);
+   setlength(goods, goodCnt + 1);
+   for i := 1 to goodCnt do
+   begin
+      Readln(inF, goods[i].caption);
+      Readln(inF, goods[i].price, goods[i].parentCat);
+   end;
+   for i := 1 to catCnt do
+      Writeln(outF, CatSQL(cats[i]));
+   for i := 1 to goodCnt do
+      Writeln(outF, GoodSQL(goods[i]));
+   CloseFile(outF);
+   CloseFile(inF);
+end;
+
+end.

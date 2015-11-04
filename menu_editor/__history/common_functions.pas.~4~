@@ -1,0 +1,580 @@
+unit common_functions;
+
+interface
+
+uses Windows,
+     WinInet,
+     SysUtils,
+     StrUtils,
+     JPEG,
+     Vcl.Graphics,
+     pngimage,
+     Vcl.StdCtrls,
+     Vcl.ExtCtrls,
+     Vcl.Grids,
+     Classes,
+//     IBX.IBQuery,
+     Vcl.Controls,
+//     IBX.IBDatabase,
+     Data.SqlExpr,
+     Vcl.Dialogs;
+
+type
+   THelpful = class
+   public
+      procedure PriceKeyPress(Sender: TObject; var Key: Char);
+      procedure AmountKeyPress(Sender: TObject; var Key: Char);
+      procedure AmountKeyPressSG(Sender: TObject; var Key: Char);
+      function GridAlowEditing(rRow, dCol, aCol, aRow: integer; aGrid: TStringGrid): boolean;
+   end;
+   TDeliveryMode = (dmAdd, dmChange, dmWarehouseAdd, dmWarehouseChange);
+   TStrRes = (srIncorrect, srAborted, srEmpty, srOK);
+   TCalcType = (ctUsual = 0, ctReverse = 1, ctAuto = 2);
+
+   TFakeGrid2 = class(TCustomGrid);
+
+var
+   IMG_FOLDER: string;
+   helpful: THelpful;
+
+
+function AddDecimalToFloatStr(val: string): string;
+function MyFloatStrToDelphiFloatStr(val: string): string;
+function DelphiFloatStrToMyFloatStr(val: string): string;
+function IsConnectedToInternet: Boolean;
+function GetJPGImage(name: string): TBitmap;
+function GetPNGImage(name: string): TBitmap;
+function CheckStrToInt(value: string): boolean;
+function FloatToPrice(num: double): string;
+function CheckAmountFields(values: TStrings): boolean;
+procedure DeleteARow(Grid: TStringGrid; ARow: Integer);
+procedure SetComponent(var Comp: TWinControl; P: TWinControl; W, L, T, H: integer);
+function Split(ADelimiter: Char; AStr: string): TStringList;
+//function Split2(ADelimiter: Char; AStr: string): TStringList;
+function CreateTrans(ADB: TIBDatabase): TIBTransaction;
+function CreateQuery(ADB: TIBDatabase; ATrans: TIBTransaction; SQLText: string = ''): TIBquery;
+function GridSetPrice(aPrice: double; dCol, aCol, aRow, pCol: integer;
+   aGrid: TStringGrid; aValue: string): integer;
+function CreateDbConnect(user, pass, path: string): TIBDatabase;
+function StringListToString(AList: TStringList): string;
+function ToBracket(str: string; bracketOpen: string = '('; bracketClose: string = ')'): string;
+function DmToInt(AMode: TDeliveryMode): integer;
+function FltToStr(ADigit: Double): string;
+function StrToFlt(AStr: string): double;
+function Reconnect(ASQLConnect: TSQLConnection): boolean;
+function CheckServStr(AString: string): TStrRes;
+function IncLength(var mas: array of integer): integer;
+function ToCalcType(x: integer): TCalcType;
+function CTToString(x: TCalcType): string;
+function GetTextWidth(s: string): integer;
+function StringResultToStr(s: TStrRes): string;
+
+
+implementation
+function StringResultToStr(s: TStrRes): string;
+begin
+   case s of
+      srIncorrect: result := 'Broken string';
+      srAborted: result := 'Operation aborted';
+      srEmpty: result := 'Empty result';
+      srOK: result := 'String correct';
+   end;
+end;
+function GetTextWidth(s: string): integer;
+var
+   bm: TBitmap;
+begin
+   bm := TBitmap.Create;
+   result := bm.Canvas.TextWidth(s);
+   FreeAndNil(bm);
+end;
+
+function CTToString(x: TCalcType): string;
+begin
+   case x of
+      ctUsual: result := 'Прямой';
+      ctReverse: result := 'Обратный';
+      ctAuto: result := 'Автоматический';
+   end;
+end;
+
+function ToCalcType(x: integer): TCalcType;
+begin
+   case x of
+      0: result := ctUsual;
+      1: result := ctReverse;
+      2: result := ctAuto;
+   end;
+end;
+function IncLength(var mas: array of integer): integer;
+begin
+//   setlength(mas, length(mas) + 1);
+//   result := high(mas);
+end;
+
+function CheckServStr(AString: string): TStrRes;
+begin
+   result := srIncorrect;
+   if length(AString) < 2 then
+      exit;
+   if AString[length(AString) - 1] + AString[length(AString)] <> '#0' then
+      exit;
+   if AString = 'Aborted#0' then
+      result := srAborted
+   else if AString = '#0' then
+      result := srEmpty
+   else
+      result := srOK;
+end;
+
+function Reconnect(ASQLConnect: TSQLConnection): boolean;
+var
+   i: integer;
+const
+   TryConnectCount = 4;
+begin
+   result := false;
+   for i := 0 to TryConnectCount - 1 do
+   begin
+      ASQLConnect.Connected := false;
+      try
+         ASQLConnect.Connected := true;
+         result := true;
+      except
+         on E:Exception do
+            ShowMessage('Попытка подключения № ' + IntToStr(i + 1) + 'Ошибка: '
+               + E.Message);
+      end;
+   end;
+end;
+
+
+function FltToStr(ADigit: Double): string;
+begin
+   result := FloatToStr(ADigit);
+   result := ReplaceStr(result, ',', '.');
+end;
+
+function StrToFlt(AStr: string): double;
+begin
+   result := StrToFloat(FloatToStrF(StrToFloat(ReplaceStr(AStr, '.', ',')), ffFixed, 10, 2));
+end;
+
+function AddDecimalToFloatStr(val: string): string;
+begin
+   result := val + IfThen(Pos('.', val) = 0, '.0');
+end;
+
+function MyFloatStrToDelphiFloatStr(val: string): string;
+var
+   del_pos: integer;
+begin
+   result := val;
+   del_pos := Pos('.', val);
+   if del_pos = 0 then exit;  
+   result[del_pos] := ',';
+end;
+
+function DelphiFloatStrToMyFloatStr(val: string): string;
+var
+   del_pos: integer;
+begin
+   result := val;
+   del_pos := Pos(',', val);
+   if del_pos = 0 then exit;  
+   result[del_pos] := '.';
+end;
+
+function FloatToPrice(num: double): string;
+const
+   REMAINDER_DEL_POS = 3;
+   REMAINDER_LENGTH_AFTER_DEL = 2;
+
+   function strFloat(val: double): string;
+   begin
+      result := FloatToStrF(val, ffFixed, 10, 2);
+   end;
+
+var
+   remainder, str_num: string;
+   del_pos: integer;
+begin
+   result := FloatToStr(num);
+   if (Trunc(num) = num) then
+      result := result + '.0'
+   else
+   begin
+      remainder := Copy(strFloat(num - Trunc(num)), REMAINDER_DEL_POS, REMAINDER_LENGTH_AFTER_DEL);
+//      str_num := strFloat(num);
+//      del_pos := Pos(',', remainder);
+//      result := Copy(str_num) + (Copy(str, del_pos + 1,Length(str)));
+      result := IntToStr(Trunc(num)) + '.' + remainder;
+   end;
+end;
+
+function DmToInt(AMode: TDeliveryMode): integer;
+begin
+   case AMode of
+      dmAdd: result := 0;
+      dmChange: result := 1;
+      dmWarehouseAdd: result := 2;
+      dmWarehouseChange: result := 3;
+   end;
+end;
+
+function ToBracket(str: string; bracketOpen: string = '('; bracketClose: string = ')'): string;
+begin
+   result := bracketOpen + str + bracketClose;
+end;
+
+procedure SetComponent(var Comp: TWinControl; P: TWinControl; W, L, T, H: integer);
+begin
+   with Comp do
+   begin
+      Parent := P;
+      Width := W;
+      Left := L;
+      Top := T;
+      Height := H;
+   end;
+end;
+
+function StringListToString(AList: TStringList): string;
+var
+   i: integer;
+begin
+   if AList.Count < 1 then
+   begin
+      result := '';
+      exit;
+   end;
+   result := AList[0];
+   for i := 1 to AList.Count - 1 do
+   begin
+      result := result + '*' + AList[i];
+   end;
+end;
+
+function CreateDbConnect(user, pass, path: string): TIBDatabase;
+begin
+   if user = '' then
+      user := 'sysdba';
+   if pass = '' then
+      pass := 'masterkey';
+   if path = '' then
+      path := 'localhost:c:\melange_db.fdb';
+   result := TIBDatabase.Create(nil);
+   with result do
+   begin
+      Params.Add('user_name='+user);
+      Params.Add('password='+pass);
+      Params.Add('lc_ctype=UTF8');
+      DatabaseName := path;
+      LoginPrompt := false;
+   end;
+end;
+
+function CreateTrans(ADB: TIBDatabase): TIBTransaction;
+begin
+   result := TIBTransaction.Create(nil);
+   result.DefaultDatabase := ADB;
+end;
+
+function Split(ADelimiter: Char; AStr: string): TStringList;
+var
+   i: integer;
+   Splitted: TArray<String>;
+   flag: boolean;
+   l, r: integer;
+begin
+   result := TStringList.Create;
+   if length(AStr) = 0 then
+      Exit;
+   l := 1;
+   flag := false;
+   while not flag do
+   begin
+      l := 1;
+      r := pos(ADelimiter, AStr);
+      if r = 0 then
+         result.Add(copy(AStr, l, length(AStr) - l + 1))
+      else
+         result.Add(copy(AStr, l, r - 1));
+      l := r + 1;
+      flag := (l > length(AStr)) or (r = 0);
+      AStr := copy(AStr, l, length(AStr) - l + 1);
+   end;
+end;
+
+//function Split2(ADelimiter: Char; AStr: string): TStringList;
+//var
+//   i: integer;
+//   Splitted: TArray<String>;
+//begin
+//   Splitted := Astr.Split([ADelimiter]);
+//   result := TStringList.Create;
+//   for i := 0 to Length(Splitted) - 1 do
+//   begin
+//      result.Add(Splitted[i]);
+//   end;
+//end;
+
+function CreateQuery(ADB: TIBDatabase; ATrans: TIBTransaction; SQLText: string = ''): TIBquery;
+begin
+   result := TIBQuery.Create(nil);
+   with result do
+   begin
+      Database := ADB;
+      Transaction := ATrans;
+      SQL.Text := SQLText;
+   end;
+end;
+
+function IsConnectedToInternet: Boolean;
+var
+   dwConnectionTypes: DWORD;
+begin
+   dwConnectionTypes:= INTERNET_CONNECTION_MODEM or INTERNET_CONNECTION_LAN or INTERNET_CONNECTION_PROXY;
+   Result := InternetGetConnectedState(@dwConnectionTypes, 0);
+end;
+
+function GridSetPrice(aPrice: double; dCol, aCol, aRow, pCol: integer;
+   aGrid: TStringGrid; aValue: string): integer;
+begin
+   if aValue = '' then
+   begin
+      result := 0;
+      exit;
+   end;
+   with aGrid do
+   begin
+      if aCol = dCol then
+      begin
+         result := StrToInt(aValue);
+         Cells[pCol, aRow] := AddDecimalToFloatStr(DelphiFloatStrToMyFloatStr(FloatToStr(aPrice * result)));
+      end;
+   end;
+end;
+
+function THelpful.GridAlowEditing(rRow, dCol, aCol, aRow: integer; aGrid: TStringGrid): boolean;
+begin
+   result := false;
+   with aGrid do
+   begin
+      Options := Options - [goEditing];
+      if aRow <> rRow then
+         if aCol = dCol then
+         begin
+            Options := Options + [goEditing];
+            result:= true;
+         end;
+   end;
+end;
+
+procedure THelpful.PriceKeyPress(Sender: TObject; var Key: Char);
+var
+   str: string;
+   flag: boolean;
+begin
+   if (Sender is TEdit) then
+      str := TEdit(Sender).Text;
+   if (Sender is TLabeledEdit) then
+      str := TLabeledEdit(Sender).Text;
+   flag := (pos('.', str) = length(str) - 2) and (length(str) <> 2);
+   if Key = #8 then     //backspace
+   begin
+      if (Sender is TEdit) and (Length((Sender as TEdit).Text) = 1) then
+      begin
+         Key := #0;
+         (Sender as TEdit).Text := '0';
+         (Sender as TEdit).SelStart := 1;
+         (Sender as TEdit).SelLength := 0;
+      end
+      else if (Sender is TLabeledEdit) and (Length((Sender as TLabeledEdit).Text) = 1) then
+      begin
+         Key := #0;
+         (Sender as TLabeledEdit).Text := '0';
+         (Sender as TLabeledEdit).SelStart := 1;
+         (Sender as TLabeledEdit).SelLength := 0;
+      end;
+      exit;
+   end;
+   if Key in [',', '.'] then
+   begin
+      if Sender is TEdit then
+         if Pos('.', (Sender as TEdit).Text) <> 0 then
+            Key := #0
+         else
+            Key := '.'
+      else
+         if Pos('.', (Sender as TLabeledEdit).Text) <> 0 then
+            Key := #0
+         else
+            Key := '.';
+      exit;
+   end;
+   if not (Key in ['0'..'9']) then
+   begin
+      Key := #0;
+      exit;
+   end;
+   if (Key in ['0'..'9']) and flag then
+   begin
+      Key := #0
+   end
+   else if (Key in ['0'..'9']) then        
+      if (Sender is TEdit) and ((Sender as TEdit).Text = '0') then
+         (Sender as TEdit).Text := ''
+      else if (Sender is TLabeledEdit) and ((Sender as TLabeledEdit).Text = '0') then
+         (Sender as TLabeledEdit).Text := '' ;
+end;
+
+procedure THelpful.AmountKeyPress(Sender: TObject; var Key: Char);
+begin
+   if Key = #8 then     //backspace
+   begin
+      if length((Sender as TEdit).Text) = 1 then
+      begin
+         Key := #0;
+         (Sender as TEdit).Text := '0';
+         (Sender as TEdit).SelStart := 1;
+         (Sender as TEdit).SelLength := 0;
+      end;
+      exit;
+   end;
+//   if Key = #13 then       //enter
+//   begin
+//      btnOkClick(btnOk);
+//      exit;
+//   end;
+//   if Key = #27 then
+//   begin
+//      btnCancelClick(btnCancel);
+//      exit;
+//   end;
+   if not (Key in ['0'..'9']) then
+   begin
+      Key := #0;
+      exit;
+   end;
+   if (Key in ['0'..'9']) and ((Sender as TEdit).Text = '0') then
+   begin
+      (Sender as TEdit).Text := '';
+   end;
+end;
+
+procedure THelpful.AmountKeyPressSG(Sender: TObject; var Key: Char);
+var
+   col, row: integer;
+   str: string;
+   SRect: TGridRect;
+begin
+   col := (Sender as TStringGrid).Col;
+   row := (Sender as TStringGrid).Row;
+   str := (Sender as TStringGrid).Cells[col, row];
+   case Key of
+      #8: begin
+             if length(str) = 1 then
+                str := '0'
+             else
+                str := copy(str, 1, length(str) - 1);
+          end;
+      #13:
+      begin
+         with SRect do
+         begin
+            Top := row;
+            Left := col;
+            Bottom := row;
+            Right := col;
+         end;
+         (Sender as TStringGrid).Selection := sRect;
+         exit;
+      end
+      else if Key in ['0'..'9']  then
+      begin
+         if (str = '0') and (Key = '0') then
+            str := '0'
+         else if (str = '0') then
+            str := Key
+         else
+            str := str + Key;
+      end
+      else
+         beep;
+   end;
+//   if Key in [#20..#28] then
+//   begin
+//      Key := #0;
+//      exit;
+//   end;
+
+   Key := #0;
+  (Sender as TStringGrid).Cells[col, row] := str;
+end;
+
+function CheckAmountFields(values: TStrings): boolean;    //except 0 - index elem
+var
+   i: integer;
+begin
+   result := true;
+   for i := 1 to values.Count - 1 do
+      if not CheckStrToInt(values[i]) then
+      begin
+         result := false;
+         exit;
+      end;
+end;
+
+function CheckStrToInt(value: string): boolean;
+var
+   i: integer;
+const
+   digits: set of char = ['0','1','2','3','4','5','6','7','8','9'];
+begin
+   result := true;
+   if value = '' then
+      result := false;
+   for i := 1 to length(value) do
+      if not (value[i] in digits) then
+      begin
+         result := false;
+         exit;
+      end;
+end;
+
+function GetJPGImage(name: string): TBitmap;
+var
+   jpg: TJPEGImage;
+begin
+   result := TBitmap.Create;
+   jpg := TJpegImage.Create;
+   jpg.LoadFromFile(IMG_FOLDER + 'jpg/' + name);
+//   jpg.CompressionQuality := 1;
+//   jpg.Compress;
+   result.Assign(jpg);
+   jpg.Destroy;
+end;
+
+function GetPNGImage(name: string): TBitmap;
+var
+   png: TPngImage;
+begin
+   result := TBitmap.Create;
+   png := TPNGImage.Create;
+   png.LoadFromFile(IMG_FOLDER + 'png/' + name);
+   png.AssignTo(result);
+   png.Destroy;
+end;
+
+procedure DeleteARow(Grid: TStringGrid; ARow: Integer);
+begin
+   TFakeGrid2(Grid).DeleteRow(ARow);
+end;
+
+initialization
+   helpful := THelpful.Create;
+   IMG_FOLDER := ExtractFilePath(ParamStr(0)) + '../../../../images/';
+
+end.
+

@@ -1,0 +1,133 @@
+unit RecipeCard;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Measure, Vcl.StdCtrls, Vcl.ExtCtrls, Recipe,
+  Ingredient, IngredientRepository;
+
+type
+	TfmRecipeCard = class(TForm)
+		pnlBtns: TPanel;
+		btnSave: TButton;
+		btnCancel: TButton;
+		cbIngredient: TComboBox;
+		lbIngredient: TLabel;
+		leAmount: TLabeledEdit;
+		procedure leAmountClick(Sender: TObject);
+		procedure btnSaveClick(Sender: TObject);
+		procedure btnCancelClick(Sender: TObject);
+	private
+	{ Private declarations }
+	public
+		BaseName: string;
+		ingredients: TIngredientArray;
+		PRecipe: TPRecipe;
+		procedure prepare();
+	{ Public declarations }
+	end;
+
+function show(APRecipe: TPRecipe; ABaseName: string): boolean;
+
+var
+  fmRecipeCard: TfmRecipeCard;
+
+implementation
+
+{$R *.dfm}
+
+uses ValInput, MeasureRepository, vars;
+
+function show(APRecipe: TPRecipe; ABaseName: string): boolean;
+begin
+	if (fmRecipeCard = nil) then
+	begin
+        fmRecipeCard := TfmRecipeCard.Create(nil);
+	end;
+	fmRecipeCard.BaseName := ABaseName;
+	fmRecipeCard.PRecipe := APRecipe;
+	fmRecipeCard.prepare();
+	fmRecipeCard.ShowModal();
+	result := fmRecipeCard.ModalResult = mrOk;
+end;
+
+{ TfmRecipeCard }
+
+procedure TfmRecipeCard.btnCancelClick(Sender: TObject);
+begin
+	ModalResult := mrCancel;
+	CloseModal;
+end;
+
+procedure TfmRecipeCard.btnSaveClick(Sender: TObject);
+var
+	selIngredient: integer;
+	amount: double;
+begin
+	selIngredient := cbIngredient.ItemIndex;
+	if (selIngredient < 0) or (selIngredient >= length(ingredients)) then
+	begin
+		ShowMessage('Выберите ингредиент!');
+		Exit;
+	end;
+	try
+		amount := StrToPrice(leAmount.Text);
+	except
+		on E:Exception do
+		begin
+			ShowMessage('Некорректное количество!');
+			Exit;
+        end;
+	end;
+	if (amount <= 0) then
+	begin
+		ShowMessage('Некорректное количество!');
+		Exit;
+	end;
+	PRecipe^.Amount := amount;
+	PRecipe^.Ingredient := ingredients[selIngredient];
+	ModalResult := mrOk;
+	CloseModal;
+end;
+
+procedure TfmRecipeCard.leAmountClick(Sender: TObject);
+var
+	s: string;
+	ns: double;
+begin
+	s := GetText(true, 'Количество ингредиента', 'Введите количество');
+	try
+		ns := StrToPrice(s);
+	except
+		on E:Exception do
+		begin
+			ShowMessage('Некорректное количество!');
+			Exit;
+        end;
+	end;
+	leAmount.Text := PriceToStr(ns);
+end;
+
+procedure TfmRecipeCard.prepare;
+var
+	i: integer;
+begin
+	leAmount.Text := PriceToStr(PRecipe^.Amount);
+	cbIngredient.Items.Clear;
+	cbIngredient.Text := '';
+	ingredients := TIngredientRepository.GetAll(BaseName);
+	for i := 0 to high(ingredients) do
+	begin
+		if (PRecipe^.Id > 0) then
+		begin
+			if (ingredients[i].Id = PRecipe^.Ingredient.Id) then
+			begin
+				cbIngredient.ItemIndex := i + 1;
+            end;
+        end;
+		cbIngredient.Items.Add(ingredients[i].Caption + ',' + ingredients[i].Measure.caption);
+    end;
+end;
+
+end.

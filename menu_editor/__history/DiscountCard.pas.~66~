@@ -1,0 +1,87 @@
+unit DiscountCard;
+
+interface
+
+uses
+	Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+	Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, Discount;
+
+type
+	TfmDiscountCard = class(TForm)
+		edtNumberStarts: TLabeledEdit;
+		edtNumberEnds: TLabeledEdit;
+		edtSeria: TLabeledEdit;
+		btnSave: TButton;
+		btnDeleteUnused: TButton;
+    edtUsed: TLabeledEdit;
+    edtUnused: TLabeledEdit;
+    procedure btnDeleteUnusedClick(Sender: TObject);
+    procedure btnSaveClick(Sender: TObject);
+	private
+		FBaseName: string;
+		FDiscount: TDiscountSeriaBlock;
+	public
+		procedure prepare(ABaseName: string; ADiscount: TDiscountSeriaBlock); overload;
+		procedure prepare(ABaseName: string); overload;
+	end;
+
+var
+  fmDiscountCard: TfmDiscountCard;
+
+implementation
+
+{$R *.dfm}
+
+uses DiscountRepository;
+
+{ TfmDiscountCard }
+
+procedure TfmDiscountCard.prepare(ABaseName: string;
+  ADiscount: TDiscountSeriaBlock);
+begin
+	FBaseName := ABaseName;
+	FDiscount := ADiscount;
+	edtNumberStarts.Text := IntToStr(FDiscount.numberStarts);
+	edtNumberStarts.ReadOnly := true;
+	edtNumberEnds.Text := IntToStr(FDiscount.numberEnds);
+	edtNumberEnds.ReadOnly := true;
+	edtUsed.Text := IntToStr(FDiscount.used);
+	edtUnused.Text := IntToStr(FDiscount.unused);
+	edtSeria.Text := IntToStr(FDiscount.seria);
+	edtSeria.ReadOnly := true;
+	btnDeleteUnused.Visible := true;
+	btnSave.Visible := false;
+end;
+
+procedure TfmDiscountCard.btnDeleteUnusedClick(Sender: TObject);
+begin
+	TDiscountRepository.DropUnused(FBaseName, FDiscount);
+	Close;
+end;
+
+procedure TfmDiscountCard.btnSaveClick(Sender: TObject);
+var
+	block: TDiscountSeriaBlock;
+	msg: string;
+begin
+	with block do
+	begin
+		numberStarts := StrToInt(edtNumberStarts.Text);
+		numberEnds := StrToInt(edtNumberEnds.Text);
+		seria := StrToInt(edtSeria.Text);
+	end;
+	TDiscountRepository.GenerateDiscounts(FBaseName, block);
+	Close;
+end;
+
+procedure TfmDiscountCard.prepare(ABaseName: string);
+begin
+	FBaseName := ABaseName;
+	edtNumberStarts.ReadOnly := false;
+	edtNumberEnds.ReadOnly := false;
+	edtSeria.ReadOnly := false;
+	btnDeleteUnused.Visible := false;
+	btnSave.Visible := true;
+end;
+
+end.

@@ -1,0 +1,150 @@
+unit Measure;
+
+interface
+type
+	TMeasure = class
+	public
+		Id: integer;
+		Caption: string;
+		constructor Create(AId: integer; ACaption:string); overload;
+		constructor Create(ACaption: string); overload;
+		constructor Create(); overload;
+		function Insert(ABaseName: string): boolean;
+		function Delete(ABaseName: string): boolean;
+		function Update(ABaseName: string): boolean;
+	private
+	end;
+
+	TMeasureArray = array of TMeasure;
+
+	TPMeasure = ^TMeasure;
+
+implementation
+
+uses
+	db_comps_additional, SysUtils;
+
+{ TMeasure }
+
+constructor TMeasure.Create(AId: integer; ACaption: string);
+begin
+	Id := AId;
+	Caption := ACaption;
+end;
+
+constructor TMeasure.Create(ACaption: string);
+begin
+	Id := -1;
+	Caption := ACaption;
+end;
+
+constructor TMeasure.Create;
+begin
+	Id := -1;
+	Caption := '';
+end;
+
+function TMeasure.Delete(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := false;
+		raise Exception.Create('TMeasure.Delete(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text := 'DELETE FROM measures WHERE id = :id;';
+		ParamByName('id').AsInteger := Id;
+		try
+			ExecSQL();
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+					'TMeasure.Delete(); Can not execute delete query. Error: ' + E.Message
+				);
+				adc.Destroy;
+				Exit;
+            end;
+		end;
+		adc.Destroy;
+		result := true;
+    end;
+end;
+
+function TMeasure.Insert(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := false;
+		raise Exception.Create('TMeasure.Insert(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text := 'INSERT INTO measures (caption) VALUES (:caption);';
+		ParamByName('caption').AsString := Caption;
+		try
+			ExecSQL();
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+					'TMeasure.Insert(); Can not execute insert query. Error: ' + E.Message
+				);
+				adc.Destroy;
+				Exit;
+            end;
+		end;
+		adc.Destroy;
+		result := true;
+    end;
+end;
+
+function TMeasure.Update(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := false;
+		raise Exception.Create('TMeasure.Update(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text := 'UPDATE measures SET caption = :caption WHERE id = :id;';
+		ParamByName('caption').AsString := Caption;
+		ParamByName('id').AsInteger := Id;
+		try
+			ExecSQL();
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+					'TMeasure.Insert(); Can not execute insert query. Error: ' + E.Message
+				);
+				adc.Destroy;
+				Exit;
+            end;
+		end;
+		adc.Destroy;
+		result := true;
+    end;
+end;
+
+end.

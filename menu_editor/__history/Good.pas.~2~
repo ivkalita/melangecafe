@@ -1,0 +1,18 @@
+unit Good;
+
+interface
+
+type
+   TGood = record
+      id: integer;
+      onAction: integer;
+      price: double;
+      caption: string;
+      parentCat: integer;
+      flag: integer;
+      actionMode: integer; //0 = nothing, 1 = update (add + hide) 2 = delete (hide) 3=  add (add) 4 = modify
+   end;
+
+implementation
+
+end.

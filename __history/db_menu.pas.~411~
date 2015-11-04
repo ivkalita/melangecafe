@@ -1,0 +1,414 @@
+unit db_menu;
+
+interface
+uses Vcl.Buttons, Vcl.ExtCtrls, Vcl.StdCtrls, vars;
+type
+   TDBMenuObject = class;
+   TDBMenuGood = class;
+   TDBMenuCat = class;
+   TDBMenu = class;
+   TDBViewMenu = class;
+
+   TDBMenuObject = class
+   private
+      caption: string;
+      id: integer;
+      parentId: integer;
+      parent: TDBMenuCat;
+      path: string;
+   public
+      constructor Create(AId: Integer; ACaption: string);
+      destructor Destroy; virtual; abstract;
+   end;
+
+   TDBMenuGood = class(TDBMenuObject)
+   private
+      price: double;
+      actionAble: boolean;
+   public
+      procedure SetGoodProps(APrice: double; AActionAble: integer); //0 == false 1 == true
+      destructor Destroy; override;
+   end;
+
+   TDBMenuCat = class(TDBMenuObject)
+   private
+      childs: array of TDBMenuObject;
+      function AppendChildFromDB(AId: integer; ACaption: string; AFileName: string): boolean;
+   public
+      procedure AppendChild(AObj: TDBMenuObject);
+      destructor Destroy; override;
+   end;
+
+   TDBMenu = class
+   private
+      root: TDBMenuCat;
+   public
+      procedure DebugPrint;
+      constructor Create(AFileName: string); overload;
+      destructor Destroy; override;
+   end;
+
+
+   TDBViewMenu = class
+   private
+      //main comps
+      dbmenu: TDBMenu;
+      currCat: TDBMenuCat;
+      btnBack: TBitBtn;
+      btnRoot: TBitBtn;
+      edtPath: TEdit;
+      pnlMenu: TPanel;
+      goodClickEvent: TGoodClickEvent;
+   private
+      btns: array of TBitBtn;
+   private
+      //callbacks && events
+      procedure OnBackClick(Sender: TObject);
+      procedure OnRootClick(Sender: TObject);
+      procedure OnCatClick(Sender: TObject);
+      procedure OnGoodClick(Sender: TObject);
+   private
+      procedure AddBtn(ATag: integer; AObj: TDBMenuObject;
+         l, t, w, h: integer);
+      procedure ViewMenu;
+      procedure SetEditPath;
+      procedure DestroyBtns;
+   public
+//      procedure FindAndShow(AStr: string);
+      constructor Create(AFileName: string; ABtnBack, ABtnRoot: TBitBtn;
+         APnlMenu: TPanel; AEdtPath: TEdit; AGoodEvent: TGoodClickEvent);
+      destructor Destroy;
+   end;
+
+implementation
+
+uses DB, IBX.IBQuery, IBX.IBDatabase, System.SysUtils, db_comps_additional,
+     VCL.Dialogs, VCL.Controls, Vcl.Graphics, PlatformSizes;
+
+{ TDBMenuCat }
+
+procedure TDBMenuCat.AppendChild(AObj: TDBMenuObject);
+begin
+   setlength(childs, Length(childs) + 1);
+   childs[high(childs)] := AObj;
+   with childs[High(childs)] do
+   begin
+      parent := self;
+      parentId := self.id;
+      path := Self.path + '\' + AObj.caption;
+   end;
+end;
+
+function TDBMenuCat.AppendChildFromDB(AId: integer; ACaption: string; AFileName: string): boolean;
+var
+   adc: TDBCompsAddit;
+   currentCat: TDBMenuCat;
+   currentGood: TDBMenuGood;
+   cnt: integer;
+begin
+   if AId = self.id then
+   begin
+      result := true;
+      Exit;
+   end;
+   currentCat := TDBMenuCat.Create(AId, ACaption);
+   AppendChild(currentCat);
+   adc := TDBCompsAddit.Create(AFileName);
+   if not adc.Init then
+   begin
+      ShowMessage('Cant create menu object. Error occured.');
+      result := false;
+      Exit;
+   end;
+   with adc do
+   begin
+      with query do
+      begin
+         //Categories
+         SQL.Text := 'SELECT * FROM Cats WHERE parent_id = :parent_id AND actual = 1';
+         ParamByName('parent_id').AsInteger := AId;
+         try
+            Open;
+         except
+            on E:Exception do
+            begin
+               ShowMessage('Cant do selection from base. Error: ' + E.Message);
+               result := false;
+               adc.Destroy;
+               Exit;
+            end;
+         end;
+         while not EOF do
+         begin
+            if not currentCat.AppendChildFromDB(FieldByName('id').AsInteger,
+                                                FieldByName('caption').AsString,
+                                                AFileName) then
+            begin
+               ShowMessage('Cant create menu object. Error occured.');
+               result := false;
+               adc.Destroy;
+               Exit;
+            end;
+            Next;
+         end;
+         Close;
+         //Goods
+		 SQL.Text :=
+			'SELECT ' +
+				'pg.id, pg.price, g.caption, pg.action_able ' +
+			'FROM ' +
+				'Goods g INNER JOIN Priced_goods pg ' +
+			'ON pg.good_id = g.id ' +
+			'WHERE ' +
+				'pg.expiredAt is null AND g.parent_cat = :parent_cat';
+         ParamByName('parent_cat').AsInteger := AId;
+         try
+            Open;
+         except
+            on E:Exception do
+            begin
+               ShowMessage('Cant do selection from base. Error: ' + E.Message);
+               result := false;
+               adc.Destroy;
+               Exit;
+            end;
+		 end;
+		 while (not EOF) do
+		 begin
+            currentGood := TDBMenuGood.Create(
+               FieldByName('id').AsInteger,
+               FieldByName('caption').AsString
+            );
+            currentGood.SetGoodProps(
+               FieldByName('price').AsFloat,
+               FieldByName('action_able').AsInteger
+            );
+            currentCat.AppendChild(currentGood);
+            Next;
+         end;
+      end;
+   end;
+   adc.Destroy;
+   result := true;
+end;
+
+destructor TDBMenuCat.Destroy;
+var
+   i: integer;
+begin
+   for i := 0 to high(childs) do
+      childs[i].Destroy;
+   inherited Destroy;
+end;
+
+{ TDBMenuObject }
+
+constructor TDBMenuObject.Create(AId: Integer; ACaption: string);
+begin
+   inherited Create;
+   id := AId;
+   caption := ACaption;
+end;
+
+
+{ TDBMenuGood }
+
+destructor TDBMenuGood.Destroy;
+begin
+   inherited Destroy;
+end;
+
+procedure TDBMenuGood.SetGoodProps(APrice: double; AActionAble: integer);
+begin
+   price := APrice;
+   actionAble := (AActionAble = 1);
+end;
+
+{ TDBMenu }
+
+constructor TDBMenu.Create(AFileName: string);
+var
+   adc: TDBCompsAddit;
+begin
+   inherited Create;
+   adc := TDBCompsAddit.Create(AFileName);
+   if not adc.Init then
+   begin
+      ShowMessage('Cant create menu object. Error occured.');
+      Exit;
+   end;
+   root := TDBMenuCat.Create(0, 'root');
+   with adc do
+   begin
+      with query do
+	  begin
+         SQL.Text := 'SELECT * FROM Cats WHERE id = parent_id AND actual = 1';
+         try
+            Open;
+         except
+            on E:Exception do
+            begin
+               ShowMessage('Cant do selection from base. Error: ' + E.Message);
+               root.Destroy;
+               Exit;
+            end;
+         end;
+         while not EOF do
+         begin
+            if not root.AppendChildFromDB(query.FieldByName('id').AsInteger,
+                                          query.FieldByName('caption').AsString,
+                                          AFileName) then
+            begin
+               ShowMessage('Menu create failed');
+               root.Destroy;
+               Exit;
+            end;
+            next;
+         end;
+      end;
+   end;
+end;
+
+procedure TDBMenu.DebugPrint;
+var
+   i: integer;
+begin
+   with TDBMenuCat(root.childs[0]) do
+   begin
+      for i := 0 to High(childs) do
+         ShowMessage(childs[i].caption);
+   end;
+end;
+
+destructor TDBMenu.Destroy;
+begin
+   root.Destroy;
+   inherited Destroy;
+end;
+
+{ TDBViewMenu }
+
+procedure TDBViewMenu.AddBtn(ATag: integer; AObj: TDBMenuObject;
+   l, t, w, h: integer);
+begin
+   setlength(btns, length(btns) + 1);
+   btns[High(btns)] := TBitBtn.Create(pnlMenu);
+   with btns[high(btns)] do
+   begin
+      Parent := TWinControl(pnlMenu);
+      Width := w;
+      Height := h;
+      Left := l;
+      Top := t;
+      Caption := AObj.caption;
+      Tag := ATag;
+      WordWrap := true;
+      Font.Size := Sizes.menuBtnFontSize;
+      if (AObj is TDBMenuCat) then
+      begin
+         Font.Color := clGreen;
+         OnClick := OnCatClick;
+      end
+      else
+      begin
+         Font.Color := clRed;
+         OnClick := OnGoodClick;
+      end;
+   end;
+
+
+end;
+
+constructor TDBViewMenu.Create(AFileName: string; ABtnBack, ABtnRoot: TBitBtn;
+  APnlMenu: TPanel; AEdtPath: TEdit; AGoodEvent: TGoodClickEvent);
+begin
+   inherited Create;
+   dbmenu := TDBMenu.Create(AFileName);
+   btnBack := ABtnBack;
+   btnRoot := ABtnRoot;
+   btnBack.OnClick := OnBackClick;
+   btnRoot.OnClick := OnRootClick;
+   goodClickEvent:= AGoodEvent;
+   pnlMenu := APnlMenu;
+   edtPath := AEdtPath;
+   currCat := dbmenu.root;
+   ViewMenu;
+end;
+
+destructor TDBViewMenu.Destroy;
+begin
+   dbmenu.Destroy;
+   DestroyBtns;
+end;
+
+procedure TDBViewMenu.DestroyBtns;
+var
+   i: integer;
+begin
+   for i := 0 to high(btns) do
+      FreeAndNil(btns[i]);
+   setlength(btns, 0);
+end;
+
+procedure TDBViewMenu.OnBackClick(Sender: TObject);
+begin
+   if (currCat <> dbmenu.root) then
+      currCat := TDBMenuCat(currCat.parent);
+   ViewMenu;
+end;
+
+procedure TDBViewMenu.OnCatClick(Sender: TObject);
+var
+   i: integer;
+begin
+   currCat := TDBMenuCat(currCat.childs[(Sender as TBitBtn).Tag]);
+   ViewMenu;
+end;
+
+procedure TDBViewMenu.OnGoodClick(Sender: TObject);
+begin
+   with TDBMenuGood(currCat.childs[(Sender as TBitBtn).Tag]) do
+      goodClickEvent(id, caption, price, actionAble);
+end;
+
+procedure TDBViewMenu.OnRootClick(Sender: TObject);
+begin
+   currCat := dbmenu.root;
+   ViewMenu;
+end;
+
+procedure TDBViewMenu.SetEditPath;
+begin
+   edtPath.Text := currCat.path;
+end;
+
+procedure TDBViewMenu.ViewMenu;
+var
+   i: integer;
+   l, t, maxL, maxT, btnWidth, btnHeight, curL, curT: integer;
+begin
+   DestroyBtns;
+   btnWidth := Sizes.menuBtnWidth;
+   btnHeight := Sizes.menuBtnHeight;
+   l := Sizes.menuMarginLeft;
+   t := Sizes.menuMarginTop;
+   curL := l;
+   curT := t;
+   maxL := pnlMenu.Width - l;
+   maxT := pnlMenu.Height - t;
+   for i := 0 to high(currCat.childs) do
+   begin
+      if (curL <= maxL - btnWidth - 10) then
+         l := l //amazing
+      else
+      begin
+         curL := l;
+         curT := curT + Sizes.menuPaddingTop + Sizes.menuMarginTop;
+      end;
+      AddBtn(i, currCat.childs[i], curL, curT, btnWidth, btnHeight);
+      curL := curL + btnWidth + Sizes.menuMarginLeft;
+   end;
+   SetEditPath;
+end;
+
+end.

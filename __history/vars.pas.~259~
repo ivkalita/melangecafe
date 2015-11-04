@@ -1,0 +1,198 @@
+unit vars;
+
+
+interface
+
+uses SysUtils, Vcl.Grids, System.StrUtils, PlatformSizes;
+
+type
+   TKKMMode = (TKKMModeUnknown = -1, TKKMModeYES = 0, TKKMModeNO = 1);
+
+   TEActionType = (atSaleCash = 0, atSaleCashFree = 1, atIncome = 2,
+                  atOutcome = 3, atOpenSess = 4, atCloseSess = 5);
+   TRAction = record
+      id: integer;
+      actionType: TEActionType;
+      dt: TDateTime;
+      money: double;
+   end;
+
+   TGoodClickEvent = procedure(id: integer; caption: string; price: double; actionAble: Boolean) of object;
+
+   TMyMenuItem = record
+	  price: double;
+	  name: string;
+   end;
+
+   TMyMenu = class
+   public
+	  MenuItems: array of TMyMenuItem;
+	  path: string;
+   public
+	  procedure Add(AName: string; APrice: double);
+	  procedure DrawOnGrid(AStringGrid: TStringGrid);
+	  constructor Create(AFileName: string = '');
+	  procedure Delete(AIdx: integer);
+	  procedure SynchWithGrid(ASg: TStringGrid);
+	  procedure SaveTo(AFileName: string);
+   end;
+
+   function PriceToStr(x: double): string;
+   function StrToPrice(x: string): double;
+   function AmountToStr(x: double): string;
+
+var
+//   CURRENT_MENU_PATH: string;
+   BASE_PATH: string;
+   SESS_ID: integer;
+   KKM_MODE: TKKMMode;
+   PLATFORM_MODE: TPlatformMode;
+
+implementation
+
+uses Math;
+function AmountToStr(x: double): string;
+var
+	n: integer;
+	x1: double;
+begin
+	x1 := RoundTo(x, -5);
+	Result := FloatToStr(RoundTo(x, 5));
+end;
+
+
+function PriceToStr(x: double): string;
+var
+   n: integer;
+   x1: double;
+begin
+   x1 := x * 100;
+   x1 := Int(x1);
+   n :=  Trunc(x1);
+   Result := IntToStr(n div 100) + ',';
+   if (n mod 100 < 10) then
+	  Result := Result + '0';
+   Result := Result + IntToStr(n mod 100);
+end;
+
+function StrToPrice(x: string): double;
+var
+   s: string;
+begin
+   result := StrToFloat(x);
+end;
+
+{ TMyMenu }
+
+procedure TMyMenu.Add(AName: string; APrice: double);
+begin
+   setlength(MenuItems, length(MenuItems) + 1);
+   with MenuItems[High(MenuItems)] do
+   begin
+      price := APrice;
+      name := AName;
+   end;
+end;
+
+constructor TMyMenu.Create(AFileName: string);
+var
+   f: Text;
+   n, i: integer;
+   s: string;
+begin
+   inherited Create;
+   if (AFileName = '') then
+   begin
+      path := '';
+      setlength(MenuItems, 0);
+      exit;
+   end;
+   try
+      AssignFile(f, AFileName);
+      Reset(f);
+//      Readln(f, n);
+      setlength(MenuItems, 0);
+      while not EOF(f) do
+      begin
+         setlength(MenuItems, length(MenuItems) + 1);
+         i := high(MenuItems);
+         readln(f, MenuItems[i].name);
+         readln(f, s);
+         MenuItems[i].price := StrToPrice(s);
+      end;
+      path := AFileName;
+      CloseFile(f);
+   except
+      on E:Exception do
+      begin
+         SetLength(MenuItems, 0);
+         Exit;
+      end;
+   end;
+end;
+
+procedure TMyMenu.Delete(AIdx: integer);
+var
+   i: integer;
+begin
+   if AIdx < 0 then
+      Exit;
+   if AIdx > High(MenuItems) then
+      exit;
+   for i := AIdx to High(MenuItems) - 1 do
+      MenuItems[i] := MenuItems[i + 1];
+   setlength(MenuItems, length(MenuItems) - 1);
+end;
+
+procedure TMyMenu.DrawOnGrid(AStringGrid: TStringGrid);
+var
+   i: integer;
+begin
+   with AStringGrid do
+   begin
+      RowCount := length(MenuItems) + 1;
+      Cells[0, 0] := 'Название';
+      Cells[1, 0] := 'Цена';
+      for i := 0 to High(MenuItems) do
+      begin
+         Cells[0, i + 1] := MenuItems[i].name;
+         Cells[1, i + 1] := PriceToStr(MenuItems[i].Price);
+      end;
+   end;
+end;
+
+procedure TMyMenu.SaveTo(AFileName: string);
+var
+   f: TextFile;
+   i: integer;
+begin
+   AssignFile(f, AFileName);
+   Rewrite(f);
+//   writeln(f, IntToStr(length(MenuItems)));
+   for i := 0 to high(MenuItems) do
+   begin
+      writeln(f, MenuItems[i].name);
+      Writeln(f, PriceToStr(MenuItems[i].price));
+   end;
+   CloseFile(f);
+   path := AFileName;
+end;
+
+procedure TMyMenu.SynchWithGrid(ASg: TStringGrid);
+var
+   i: integer;
+begin
+   setlength(MenuItems, 0);
+   for I := 1 to ASg.RowCount - 1 do
+      if (ASg.Cells[0, i] = '') or (ASg.Cells[1, i] = '') then
+         continue
+      else
+         Add(ASg.Cells[0, i], StrToPrice(ASg.Cells[1, i]));
+end;
+
+initialization
+   BASE_PATH := 'kkm_base.fdb';
+   SESS_ID := -1;
+   KKM_MODE := TKKMModeUnknown;
+   PLATFORM_MODE := TPlatformModeUnknown;
+end.

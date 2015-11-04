@@ -1,0 +1,129 @@
+unit GoodHistory;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Grids, Vcl.StdCtrls, Vcl.CheckLst,
+  Vcl.ComCtrls, Vcl.ExtCtrls;
+
+type
+  TfmGoodHistory = class(TForm)
+    pnlFilters: TPanel;
+    Label1: TLabel;
+    Label2: TLabel;
+    dtpStart: TDateTimePicker;
+    dtpEnd: TDateTimePicker;
+    btnIngredientFilters: TButton;
+    btnXLExport: TButton;
+    btnStart: TButton;
+    btnSessStart: TButton;
+    btnSessEnd: TButton;
+    dtpStartTime: TDateTimePicker;
+    dtpEndTime: TDateTimePicker;
+    pnlIngredientFilters: TPanel;
+    clIngredients: TCheckListBox;
+    sgHistory: TStringGrid;
+  private
+    { Private declarations }
+  public
+//	ingredients: THistoryIngredientArray;
+//	ingredientFilters: TIngredientArray;
+	BaseName: string;
+	procedure prepare();
+	procedure prepareFilters();
+	procedure resetItems();
+  end;
+
+  procedure show(ABaseName: string);
+
+var
+  fmGoodHistory: TfmGoodHistory;
+
+implementation
+
+{$R *.dfm}
+procedure show(ABaseName: string);
+begin
+	if (fmGoodHistory = nil) then
+	begin
+        fmGoodHistory := TfmGoodHistory.Create(nil);
+	end;
+	fmGoodHistory.BaseName := ABaseName;
+	fmGoodHistory.prepare();
+	fmGoodHistory.Show();
+end;
+
+procedure TfmGoodHistory.prepare;
+var
+	i: integer;
+begin
+	with sgHistory do
+	begin
+		RowCount := 1;
+		ColCount := 8;
+		FixedCols := 1;
+		Cells[0, 0] := 'Id сессии';
+		Cells[1, 0] := 'Название товара';
+		Cells[2, 0] := 'Цена товара';
+		Cells[3, 0] := 'Кол-во б/а';
+		Cells[4, 0] := 'Кол-во по/а';
+		Cells[5, 0] := 'Со скидкой?';
+		Cells[6, 0] := 'Итог';
+		ColWidths[0] := 50;
+		ColWidths[1] := 250;
+		ColWidths[2] := 100;
+		ColWidths[3] := 50;
+		ColWidths[4] := 50;
+		ColWidths[5] := 50;
+		ColWidths[6] := 100;
+	end;
+	prepareFilters();
+end;
+
+procedure TfmIngredientHistory.btnSessEndClick(Sender: TObject);
+var
+	sess: TSession;
+	btnSelected: integer;
+begin
+	sess := SessionPicker.selectSession(BaseName);
+	if (sess = nil) then
+	begin
+		exit;
+	end;
+	if (sess.DtEnd = 0) then
+	begin
+		btnSelected := MessageDlg(
+			'Выбранная сессия не была закончена! Выбрать дату начала этой сессии?',
+			mtConfirmation,
+			mbOKCancel,
+			0
+		);
+		if (btnSelected = mrOK) then
+		begin
+			dtpEnd.Date := Int(sess.DtStart);
+			dtpEndTime.Time := Frac(sess.DtStart);
+        end;
+	end
+	else
+	begin
+		dtpEnd.Date := Int(sess.DtEnd);
+		dtpEndTime.Time := Frac(sess.DtEnd);
+    end;
+end;
+
+procedure TfmIngredientHistory.btnSessStartClick(Sender: TObject);
+var
+	sess: TSession;
+begin
+	sess := SessionPicker.selectSession(BaseName);
+	if (sess = nil) then
+	begin
+		exit;
+	end;
+	dtpStart.Date := Int(sess.DtStart);
+	dtpStartTime.Time := Frac(sess.DtStart);
+end;
+
+
+end.

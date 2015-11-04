@@ -1,0 +1,113 @@
+unit PricedGoodRepository;
+
+interface
+
+uses PricedGood;
+
+type
+	TPricedGoodRepository = class
+		class function GetPeriodHistory(
+			ABaseName: string; AStart, AEnd: TDateTime;
+			AChecked: array of integer): THistoryPricedGoodArray;
+    end;
+
+implementation
+
+uses
+	db_comps_additional, SysUtils, Good;
+
+{ TPricedGoodRepository }
+
+class function TPricedGoodRepository.GetPeriodHistory(ABaseName: string; AStart,
+  AEnd: TDateTime; AChecked: array of integer): THistoryPricedGoodArray;
+var
+	adc: TDBCompsAddit;
+	idStr: string;
+	i: integer;
+begin
+	if (length(AChecked) = 0) then
+	begin
+        exit;
+	end;
+	for i := 0 to high(AChecked) do
+	begin
+		if i > 0 then
+		begin
+			idStr := idStr + ', ';
+		end;
+		idStr := idStr + AChecked[i];
+	end;
+	idStr := '(' + idStr + ') ';
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := nil;
+		raise Exception.Create('TPricedGoodRepository.GetPeriodHistory(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text :=
+			'SELECT ' +
+			'	g.id as g_id, g.caption as g_caption, ' +
+			'	pg2.id as pg_id, pg2.price as pg_price, pg2.createdAt as pg_ca, ' +
+			'	pg2.expiredAt as pg_ea, pg2.action_able as pg_aa, ' +
+			'    sold_pg.amount, sold_pg.action_amount as action_amount, sold_pg.discount_amount as discount_amount ' +
+			'FROM ' +
+			'	(SELECT ' +
+			'		pg.id as id, SUM(sg.amount) as amount, SUM(sg.action_amount) as action_amount, SUM(sg.amount * COALESCE(d.used, 0)) as discount_amount ' +
+			'	FROM ' +
+			'		Sales s INNER JOIN Sale_goods sg ON sg.sale_id = s.id ' +
+			'				INNER JOIN Priced_goods pg ON sg.good_id = pg.id ' +
+			'				LEFT JOIN discounts d ON s.discount_id = d.id ' +
+			'	WHERE ' +
+			'		s.dt >= :date_start AND s.dt <= :date_end ' +
+			'	GROUP BY ' +
+			'		id) as ' +
+			'	sold_pg ' +
+			'		INNER JOIN Priced_goods pg2 ON sold_pg.id = pg2.id ' +
+			'		INNER JOIN Goods g ON pg2.good_id = g.id ' +
+			'WHERE ' +
+			'	g.id IN ' + idStr +
+			'ORDER BY ' +
+			'	g_id ';
+		ParamByName('date_start').AsDateTime := AStart;
+		ParamByName('date_end').AsDateTime := AEnd;
+		try
+			Open;
+		except
+			on E:Exception do
+			begin
+				result := nil;
+				raise Exception.Create(
+					'TPricedGoodRepository.GetPeriodHistory(); Can not execute query! Error: ' + E.Message
+				);
+				adc.Destroy;
+				Exit;
+			end;
+		end;
+		while not EOF do
+		begin
+			setlength(result, length(result) + 1);
+			result[high(result)] := THistoryPricedGood.Create(
+				FieldByName('pg_id').AsInteger,
+				TGood.Create(
+					  FieldByName('g_id').AsInteger,
+					  FieldByName('g_caption').AsString
+				),
+				FieldByName('pg_price').AsFloat,
+				FieldByName('pg_ca').AsDateTime,
+				FieldByName('pg_ea').AsDateTime,
+				FieldByName('pg_aa').AsInteger,
+				FieldByName('amount').AsFloat,
+				FieldByName('action_amount').AsFloat,
+				FieldByName('discount_amount').AsFloat
+			);
+			Next;
+		end;
+	end;
+	adc.Destroy;
+end;
+
+end.

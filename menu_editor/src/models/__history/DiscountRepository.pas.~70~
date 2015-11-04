@@ -1,0 +1,159 @@
+unit DiscountRepository;
+
+interface
+
+uses Discount;
+
+type
+	TDiscountRepository = class
+	public
+		class function GetSeriaBlocks(ABaseName: string): TDiscountSeriaBlockArray;
+		class procedure DropUnused(ABaseName: string; ADiscountBlock: TDiscountSeriaBlock);
+		class function GenerateDiscounts(ABaseName: string; ADiscountBlock: TDiscountSeriaBlock): string;
+	end;
+
+implementation
+
+uses db_comps_additional, SysUtils;
+{ TDiscountRepository }
+
+	class procedure TDiscountRepository.DropUnused(
+  		ABaseName: string; ADiscountBlock: TDiscountSeriaBlock);
+	var
+		adc: TDBCompsAddit;
+	begin
+		adc := TDBCompsAddit.Create(ABaseName);
+		if not adc.Init then
+		begin
+			raise Exception.Create('TDiscountRepository.DropUnused(); Can not init adc');
+			adc.Destroy;
+			Exit;
+		end;
+		with adc.query do
+		begin
+			SQL.Text :=
+				'DELETE ' +
+				'FROM ' +
+					'discounts ' +
+				'WHERE ' +
+					'seria = :seria ' +
+				'AND ' +
+					'used = 0;';
+			ParamByName('seria').AsInteger := ADiscountBlock.seria;
+			try
+				Open;
+			except
+				on E:Exception do
+				begin
+					raise Exception.Create(
+					'TDiscountRepository.GetDropUnused(); Can not execute query! Error: ' + E.Message
+				);
+					adc.Destroy;
+					Exit;
+				end;
+			end;
+		end;
+		adc.Destroy;
+	end;
+
+	class function TDiscountRepository.GenerateDiscounts(ABaseName: string;
+		ADiscountBlock: TDiscountSeriaBlock): string;
+	var
+		adc: TDBCompsAddit;
+		i: integer;
+	begin
+		adc := TDBCompsAddit.Create(ABaseName);
+		if not adc.Init then
+		begin
+			result := 'Не удалось инициализировать компонент подключения к базе данных!';
+			raise Exception.Create('TDiscountRepository.GenerateDiscounts(); Can not init adc');
+			adc.Destroy;
+			Exit;
+		end;
+		with adc.query do
+		begin
+			for i := ADiscountBlock.numberStarts to ADiscountBlock.numberEnds do
+			begin
+				SQL.Text := SQL.Text +
+					'INSERT INTO ' +
+						'discounts(amount, used, seria, number) ' +
+					'VALUES (10, 0, ' + IntToStr(ADiscountBlock.seria) + ', ' +
+					IntToStr(i) + ');';
+			end;
+			try
+				Open;
+			except
+				on E:Exception do
+				begin
+					result := 'Не удалось выполнить запрос!';
+					raise Exception.Create(
+						'TDiscountRepository.GenerateDiscounts(); Can not execute query! Error: ' + E.Message
+					);
+					adc.Destroy;
+					Exit;
+				end;
+			end;
+		end;
+		adc.Destroy;
+	end;
+
+	class function TDiscountRepository.GetSeriaBlocks(
+		ABaseName: string): TDiscountSeriaBlockArray;
+	var
+		adc: TDBCompsAddit;
+		block: TDiscountSeriaBlock;
+	begin
+		adc := TDBCompsAddit.Create(ABaseName);
+		if not adc.Init then
+		begin
+			result := nil;
+			raise Exception.Create('TDiscountRepository.GetSeriaBlocks(); Can not init adc');
+			adc.Destroy;
+			Exit;
+		end;
+		with adc.query do
+		begin
+			SQL.Text :=
+				'SELECT ' +
+					'min(number) as numberStarts, ' +
+					'max(number) as numberEnds, ' +
+					'seria as seria, ' +
+					'sum(amount) / (max(number) - min(number) + 1) as amount, ' +
+					'sum(used) as used, ' +
+					'sum(MOD((used + 1), 2)) as notUsed ' +
+				'FROM ' +
+					'discounts ' +
+				'GROUP BY ' +
+					'seria;';
+			try
+				Open;
+			except
+				on E:Exception do
+				begin
+					raise Exception.Create(
+					'TDiscountRepository.GetSeriaBlocks(); Can not execute query! Error: ' + E.Message
+				);
+					adc.Destroy;
+					Exit;
+				end;
+			end;
+			while not eof do
+			begin
+				setlength(result, length(result) + 1);
+				with block do
+				begin
+					numberStarts := FieldByName('numberStarts').AsInteger;
+					numberEnds := FieldByName('numberEnds').AsInteger;
+					seria := FieldByName('seria').AsInteger;
+					used := FieldByName('used').AsInteger;
+					amount := FieldByName('amount').AsInteger;
+					notUsed := FieldByName('notUsed').AsInteger;
+				end;
+				result[high(result)] := block;
+				Next;
+			end;
+		end;
+		adc.Destroy;
+	end;
+
+end.

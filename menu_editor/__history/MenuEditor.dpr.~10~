@@ -1,0 +1,39 @@
+program MenuEditor;
+
+uses
+  Vcl.Forms,
+  main in 'src\main.pas' {fmMain},
+  SaleShot in 'SaleShot.pas' {fmSaleShot},
+  db_comps_additional in 'db_comps_additional.pas',
+  Vcl.Themes,
+  Vcl.Styles,
+  MenuEdit in 'MenuEdit.pas' {fmMenuEditor},
+  DBMenu in 'DBMenu.pas',
+  fmGoodEdit in 'fmGoodEdit.pas' {fmGoodEditor},
+  MenuDesigner in 'MenuDesigner.pas' {fmMenuDesigner},
+  AmountInput in 'AmountInput.pas' {fmAmount},
+  common_functions in 'common_functions.pas',
+  vars in '..\vars.pas',
+  Office_TLB in 'src\Office_TLB.pas',
+  PlatformSizes in '..\PlatformSizes.pas',
+  goodCard in 'goodCard.pas' {fmGoodCard},
+  Good in 'src\models\Good.pas',
+  GoodRepository in 'src\models\GoodRepository.pas',
+  Session in 'src\models\Session.pas',
+  SessionRepository in 'src\models\SessionRepository.pas',
+  fmDiscountEdit in 'fmDiscountEdit.pas' {fmDiscountEditor},
+  Discount in 'src\models\Discount.pas',
+  DiscountRepository in 'src\models\DiscountRepository.pas',
+  DiscountCard in 'DiscountCard.pas' {fmDiscountCard};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TfmMain, fmMain);
+  Application.CreateForm(TfmGoodCard, fmGoodCard);
+  Application.CreateForm(TfmDiscountEditor, fmDiscountEditor);
+  Application.CreateForm(TfmDiscountCard, fmDiscountCard);
+  Application.Run;
+end.

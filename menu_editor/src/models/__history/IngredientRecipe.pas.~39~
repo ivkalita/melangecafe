@@ -1,0 +1,147 @@
+unit IngredientRecipe;
+
+interface
+
+uses
+	Ingredient;
+
+type
+	TIngredientRecipe = class
+	public
+		Id: integer;
+		Source: TIngredient;
+		Part: TIngredient;
+		CreatedAt: TDateTime;
+		ExpiredAt: TDateTime;
+		Amount: double;
+		constructor Create(
+			AId: integer; ASource, APart: TIngredient;
+			ACreatedAt, AExpiredAt: TDateTime; AAmount: double); overload;
+		constructor Create(
+			AId: integer; ASource, APart: TIngredient; AAmount: double); overload;
+		constructor Create(ASource: TIngredient); overload;
+		constructor Create(APart: TIngredient; AAmount: double); overload;
+		function Insert(ABaseName: string): boolean;
+		function Delete(ABaseName: string): boolean;
+		function Update(ABaseName: string): boolean;
+	end;
+
+	TPIngredientRecipe = ^TIngredientRecipe;
+
+	TIngredientRecipeArray = array of TIngredientRecipe;
+
+implementation
+
+uses db_comps_additional, SysUtils;
+{ TRecipe }
+
+constructor TIngredientRecipe.Create(AId: integer; ASource, APart: TIngredient;
+  AAmount: double);
+begin
+	Id := AId;
+	Source := ASource;
+	Part := APart;
+	Amount := AAmount;
+end;
+
+constructor TIngredientRecipe.Create(ASource: TIngredient);
+begin
+	Source := ASource;
+end;
+
+constructor TIngredientRecipe.Create(APart: TIngredient; AAmount: double);
+begin
+	Part := APart;
+	Amount := AAmount;
+end;
+
+function TIngredientRecipe.Delete(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := false;
+		raise Exception.Create('TIngredientRecipe.Delete(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text := 'UPDATE recipes SET expiredAt = CURRENT_TIMESTAMP WHERE id = :id;';
+		ParamByName('id').AsInteger := Id;
+		try
+			ExecSQL();
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+					'TIngredientRecipe.Delete(); Can not execute update query. Error: ' + E.Message
+				);
+				adc.Destroy;
+				Exit;
+            end;
+		end;
+		adc.Destroy;
+		result := true;
+    end;
+end;
+
+function TIngredientRecipe.Insert(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := false;
+		raise Exception.Create('TIngredientRecipe.Insert(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text :=
+			'INSERT INTO ' +
+				'Ingredient_recipes (src_id, part_id, amount, createdAt) ' +
+			'VALUES (:src_id, :part_id, :amount, CURRENT_TIMESTAMP);';
+		ParamByName('src_id').AsInteger := Source.Id;
+		ParamByName('ingr_id').AsInteger := Part.Id;
+		ParamByName('amount').AsFloat := Amount;
+		try
+			ExecSQL();
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+					'TIngredientRecipe.Insert(); Can not execute insert query. Error: ' + E.Message
+				);
+				adc.Destroy;
+				Exit;
+            end;
+		end;
+		adc.Destroy;
+		result := true;
+    end;
+end;
+
+function TIngredientRecipe.Update(ABaseName: string): boolean;
+begin
+	result := Delete(ABaseName) and Insert(ABaseName);
+end;
+
+constructor TIngredientRecipe.Create(AId: integer; AGood: TGood; AIngredient: TIngredient;
+  ACreatedAt, AExpiredAt: TDateTime; AAmount: double);
+begin
+	Id := AId;
+	Good := AGood;
+	Ingredient := AIngredient;
+	CreatedAt := ACreatedAt;
+	ExpiredAt := AExpiredAt;
+	Amount := AAmount;
+end;
+
+end.

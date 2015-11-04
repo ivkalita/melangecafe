@@ -1,0 +1,12 @@
+unit db_menu_visual;
+
+interface
+type
+   TDBMenuVisual = class
+   private
+      dbmenu: TDBMenu;
+   end;
+
+implementation
+
+end.

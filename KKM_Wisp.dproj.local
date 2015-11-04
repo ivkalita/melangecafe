@@ -1,0 +1,75 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>1899.12.30 00:00:00.000.774,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.400,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.715,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.143,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.670,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.651,=C:\Coding\melange_kkm\Money.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.271,C:\Coding\melange\melange_kkm\Money.pas=</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.373,=C:\Coding\melange\melange_kkm\Money.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.451,C:\Coding\melange_kkm\db_menu_visual.pas=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.212,C:\Coding\melange_kkm\db_comps_additional.pas=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.583,C:\Coding\melange_kkm\db_menu_visual.pas=</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.758,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.623,C:\Coding\melange_kkm\Unit1.pas=C:\Coding\melange_kkm\CurrencyModule.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.392,C:\Coding\melange_kkm\Unit1.pas=C:\Coding\melange_kkm\vars.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.468,C:\Coding\melange_kkm\Unit1.pas=C:\Coding\melange_kkm\menuEdit.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.323,C:\Coding\melange_kkm\ext_info.pas=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.896,C:\Coding\melange_kkm\history.dfm=C:\Coding\melange_kkm\Unit1.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.852,C:\Coding\melange_kkm\Unit1.pas=C:\Coding\melange_kkm\CheckTab.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.411,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.310,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.391,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.662,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.512,=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.441,C:\Coding\melange\melange_kkm\Preferences.pas=C:\Coding\melange\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.777,C:\Coding\melange\melange_kkm\Unit1.pas=C:\Coding\melange\melange_kkm\PlatformSizes.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.125,=C:\Coding\melange\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.736,=C:\Coding\melange\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.685,=C:\Users\Arrokayo\Documents\RAD Studio\9.0\Imports\FprnM1C82_TLB.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.594,C:\Users\Arrokayo\Documents\RAD Studio\Projects\Unit2.dfm=C:\Coding\melange_kkm\main.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.031,=C:\Coding\melange\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.323,C:\Coding\melange_kkm\ext_info.dfm=C:\Coding\melange_kkm\Unit1.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.889,C:\Coding\melange\melange_kkm\Discount.pas=</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.942,C:\Coding\melange_kkm\db_menu.pas=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.214,C:\Coding\melange\melange_kkm\Unit1.pas=C:\Coding\melange\melange_kkm\Action.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.573,C:\Coding\melange\melange_kkm\Action.pas=C:\Coding\melange\melange_kkm\Discount.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.468,C:\Coding\melange_kkm\Unit1.dfm=C:\Coding\melange_kkm\menuEdit.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.896,C:\Coding\melange_kkm\history.pas=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.573,C:\Coding\melange\melange_kkm\Action.dfm=C:\Coding\melange\melange_kkm\Discount.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.039,=C:\Coding\melange\melange_kkm\ValInput.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.568,C:\Coding\melange_kkm\SaleType.pas=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.441,C:\Coding\melange\melange_kkm\Preferences.dfm=C:\Coding\melange\melange_kkm\Unit1.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.102,C:\Users\Arrokayo\Documents\RAD Studio\Projects\Project1.dproj=C:\Coding\melange_kkm\KKM_Wisp.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.558,C:\Coding\melange_kkm\db_procs.pas=C:\Coding\melange_kkm\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.214,C:\Coding\melange\melange_kkm\Unit1.dfm=C:\Coding\melange\melange_kkm\Action.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.568,C:\Coding\melange_kkm\SaleType.dfm=C:\Coding\melange_kkm\Unit1.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.106,=C:\Users\Arrokayo\Documents\RAD Studio\Projects\Unit2.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.594,C:\Users\Arrokayo\Documents\RAD Studio\Projects\Unit2.pas=C:\Coding\melange_kkm\main.pas</Transaction>
+  </Transactions>
+	<ProjectSortOrder AutoSort="0" SortType="0">
+    <File Path="CheckTab.pas"/>
+    <File Path="CurrencyModule.pas"/>
+    <File Path="db_comps_additional.pas"/>
+    <File Path="db_menu.pas"/>
+    <File Path="db_procs.pas"/>
+    <File Path="ext_info.pas"/>
+    <File Path="ext_info.dfm"/>
+    <File Path="history.pas"/>
+    <File Path="history.dfm"/>
+    <File Path="main.pas"/>
+    <File Path="main.dfm"/>
+    <File Path="Money.pas"/>
+    <File Path="Money.dfm"/>
+    <File Path="PlatformSizes.pas"/>
+    <File Path="Preferences.pas"/>
+    <File Path="Preferences.dfm"/>
+    <File Path="SaleType.pas"/>
+    <File Path="SaleType.dfm"/>
+    <File Path="ValInput.pas"/>
+    <File Path="ValInput.dfm"/>
+    <File Path="vars.pas"/>
+  </ProjectSortOrder>
+</BorlandProject>

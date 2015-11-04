@@ -1,0 +1,275 @@
+unit SaleType;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, ValInput, db_procs, vars;
+
+type
+  TfmSaleType = class(TForm)
+    btnCash: TButton;
+    btnFree: TButton;
+    btnExit: TButton;
+    edtSeria: TEdit;
+    edtNumber: TEdit;
+    edtSum: TEdit;
+    edtDiscountKey: TEdit;
+    lblSum: TLabel;
+    lblSeria: TLabel;
+    Shape1: TShape;
+    lblNumber: TLabel;
+    lblDiscountKey: TLabel;
+    lblDiscountSumm: TLabel;
+    edtDiscountSum: TEdit;
+    btnClearDiscount: TButton;
+    Shape2: TShape;
+    procedure btnCashClick(Sender: TObject);
+    procedure edtNumberClick(Sender: TObject);
+    procedure edtSeriaClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure btnClearDiscountClick(Sender: TObject);
+    procedure edtDiscountKeyClick(Sender: TObject);
+  private
+    function tryCalcDiscount: boolean;
+    { Private declarations }
+  public
+    lastDecision: integer;
+    cardSeria: integer;
+    cardNumber: integer;
+    discount: TDiscount;
+    procedure prepare(sum: Double);
+  end;
+
+var
+  fmSaleType: TfmSaleType;
+
+implementation
+
+{$R *.dfm}
+
+procedure TfmSaleType.btnCashClick(Sender: TObject);
+begin
+	if (TButton(Sender).Tag <> 3) then
+	begin
+		lastDecision := TButton(Sender).Tag;
+		Close;
+		exit;
+	end;
+	if (MessageDlg('Подтвердите продажу по банковской карте!',mtWarning, [mbYes, mbNo], 0) = mrYes) then
+	begin
+		lastDecision := TButton(Sender).Tag;
+		Close;
+    end;
+end;
+
+procedure TfmSaleType.btnClearDiscountClick(Sender: TObject);
+begin
+   discount.id := 0;
+   discount.amount := 0;
+   discount.key := '';
+   edtDiscountSum.Text := edtSum.Text;
+   edtSeria.Text := '';
+   edtNumber.Text := '';
+   edtDiscountKey.Text := '';
+end;
+
+function checkWifiKey(key: string): boolean;
+var
+	shift: integer;
+	today: TDateTime;
+	myDate, myMonth, myYear: word;
+	uEnc, u, ssEnc, ss: string;
+	seconds: integer;
+
+
+	function checkAlpha(key: string): boolean;
+	var
+		alphabet: string;
+		i: integer;
+	begin
+		if length(key) <> 8 then
+		begin
+			result := false;
+			exit;
+		end;
+
+		alphabet := 'abcdefghijklmnopqrstuvwxyz1234567890';
+		for i := 1 to 8 do
+		begin
+			if (alphabet.IndexOf(key[i]) < 0) then
+			begin
+				result := false;
+				exit;
+			end;
+		end;
+		result := true;
+	end;
+
+	function shiftSymb(shift: integer; symb: char): char;
+	var
+		alphabet: string;
+		len: integer;
+	begin
+		alphabet := 'abcdefghijklmnopqrstuvwxyz1234567890';
+		len := length(alphabet);
+		result := alphabet[(alphabet.IndexOf(symb) + shift + len * 10) mod length(alphabet) + 1];
+	end;
+
+	function shiftStr(shift: integer; str: string): string;
+	var
+		i: integer;
+	begin
+		result := '';
+		for i := 1 to length(str) do
+		begin
+            result := result + shiftSymb(shift, str[i]);
+        end;
+	end;
+
+begin
+	result := true;
+	key := LowerCase(key);
+	if (not checkAlpha(key)) then
+	begin
+		result := false;
+		exit;
+	end;
+	DecodeDate(Date(), myYear, myMonth, myDate);
+	shift := -1 * (myMonth + myDate);
+
+	ssEnc := Copy(key, 1, 2);
+	ss := shiftStr(shift, ssEnc);
+
+	try
+		seconds := StrToInt(ss);
+	except
+		on E:Exception do
+		begin
+			result := false;
+			exit;
+		end;
+    end;
+
+	uEnc := Copy(key, 8, 1);
+	u := shiftStr(-1 * seconds, uEnc);
+
+	result := u = 'u';
+end;
+
+procedure TfmSaleType.edtDiscountKeyClick(Sender: TObject);
+var
+	keyS: string;
+	sum: double;
+	needChangeSum: boolean;
+begin
+	keyS := GetText(false, 'Wifi ключ', 'Введите ключ');
+	if not checkWifiKey(keyS) then
+	begin
+		ShowMessage('Неверный wifi ключ!');
+		exit;
+	end;
+	edtSeria.Text := '';
+	edtNumber.Text := '';
+	needChangeSum := not((discount.id > 0) or (discount.key <> ''));
+	discount := TDBProcs.GetDiscount(keyS);
+	if (discount.amount > 0) and needChangeSum then
+	begin
+	  sum := StrToPrice(edtSum.Text);
+	  sum := sum * (100 - discount.amount) / 100;
+	  edtDiscountSum.Text := PriceToStr(sum);
+	end;
+	edtDiscountKey.Text := keyS;
+end;
+
+procedure TfmSaleType.edtNumberClick(Sender: TObject);
+var
+   numberS: string;
+   number: integer;
+begin
+   numberS := GetText(true, 'Номер карты', 'Введите номер');
+   try
+      number := StrToInt(numberS);
+      cardNumber := number;
+      if (cardSeria <> 0 and cardNumber <> 0) then
+      begin
+		 if tryCalcDiscount() then
+		 begin
+			 edtDiscountKey.Text := '';
+         end;
+      end;
+   except
+      on E:Exception do
+      begin
+         number := 0;
+      end;
+   end;
+   edtNumber.Text := IntToStr(number);
+end;
+
+procedure TfmSaleType.edtSeriaClick(Sender: TObject);
+var
+   seriaS: string;
+   seria: integer;
+begin
+   seriaS := GetText(true, 'Серия карты', 'Введите серию');
+   try
+      seria := StrToInt(seriaS);
+      cardSeria := seria;
+      if (cardNumber <> 0 and cardSeria <> 0) then
+      begin
+		 if (tryCalcDiscount()) then
+		 begin
+             edtDiscountKey.Text := '';
+         end;
+      end;
+   except
+      on E:Exception do
+      begin
+         seria := 0;
+      end;
+   end;
+   edtSeria.Text := IntToStr(seria);
+end;
+
+procedure TfmSaleType.FormShow(Sender: TObject);
+begin
+   lastDecision := -1;
+end;
+
+procedure TfmSaleType.prepare(sum: Double);
+begin
+   discount.id := 0;
+   discount.amount := 0;
+   discount.key := '';
+   edtSeria.Enabled := sum > 0;
+   edtSeria.Text := '';
+   edtNumber.Enabled := sum > 0;
+   edtNumber.Text := '';
+   edtDiscountSum.Enabled := sum > 0;
+   edtSum.Text := PriceToStr(sum);
+   edtDiscountSum.Text := PriceToStr(sum);
+   edtDiscountKey.Text := '';
+end;
+
+function TfmSaleType.tryCalcDiscount: boolean;
+var
+   sum: double;
+	needChangeSum: boolean;
+begin
+   needChangeSum := not((discount.id > 0) or (discount.key <> ''));
+   discount := TDbProcs.GetDiscount(cardSeria, cardNumber);
+   if (discount.amount > 0) then
+   begin
+	  result := true;
+	  if (needChangeSum) then
+	  begin
+		  sum := StrToPrice(edtSum.Text);
+		  sum := sum * (100 - discount.amount) / 100;
+		  edtDiscountSum.Text := PriceToStr(sum);
+      end;
+   end;
+   result := false;
+end;
+
+end.

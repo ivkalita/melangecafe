@@ -1,0 +1,29 @@
+unit Session;
+
+interface
+
+type
+	TSession = class
+	public
+		Id: integer;
+		DtStart: TDateTime;
+		DtEnd: TDateTime;
+		constructor Create(AId: integer; ADtStart, ADtEnd: TDateTime); overload;
+		constructor Create; overload;
+	end;
+
+implementation
+
+{ TSession }
+
+	constructor TSession.Create(AId: integer; ADtStart, ADtEnd: TDateTime);
+	begin
+		Id := AId;
+	end;
+
+	constructor TSession.Create;
+	begin
+
+	end;
+
+end.

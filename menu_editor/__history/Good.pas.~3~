@@ -1,0 +1,17 @@
+unit Good;
+
+interface
+
+type
+   TGood = record
+      id: integer;
+      onAction: integer;
+      price: double;
+      caption: string;
+      parentCat: integer;
+      flag: integer;
+   end;
+
+implementation
+
+end.

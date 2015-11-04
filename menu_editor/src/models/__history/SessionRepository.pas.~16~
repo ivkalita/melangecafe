@@ -1,0 +1,63 @@
+unit SessionRepository;
+
+interface
+
+uses
+	Session;
+type
+	TSessionRepository = class
+		class function GetAll(ABaseName: string): TSessionArray;
+	end;
+
+implementation
+
+uses
+	db_comps_additional, SysUtils;
+
+{ TSessionRepository }
+
+	class function TSessionRepository.GetAll(ABaseName: string): TSessionArray;
+	var
+		adc: TDBCompsAddit;
+	begin
+		adc := TDBCompsAddit.Create(ABaseName);
+		if not adc.Init then
+		begin
+			result := nil;
+			raise Exception.Create('TSessionRepository.GetAll(); Can not init adc');
+			adc.Destroy;
+			Exit;
+		end;
+		with adc.query do
+		begin
+			SQL.Text := 'Select * FROM sessions ORDER BY dt_start DESC';
+			try
+				Open;
+			except
+				on E:Exception do
+				begin
+					raise Exception.Create(
+					'TSessionRepository.GetAll(); Can not execute query! Error: ' + E.Message
+				);
+					adc.Destroy;
+					Exit;
+				end;
+			end;
+			while not eof do
+			begin
+				setlength(result, length(result) + 1);
+				result[high(result)] := TSession.Create(
+					FieldByName('id').AsInteger,
+					FieldByName('action_able').AsInteger,
+					FieldByName('parent_cat').AsInteger,
+					FieldByName('flag').AsInteger,
+					FieldByName('price').AsFloat,
+					FieldByName('caption').AsString
+				);
+				Next;
+			end;
+		end;
+		adc.Destroy;
+	end;
+
+end.

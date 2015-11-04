@@ -1,0 +1,165 @@
+unit Ingredient;
+
+interface
+
+uses
+	Measure;
+
+type
+	TIngredient = class
+	public
+		Id: integer;
+		Caption: string;
+		CreatedAt: TDateTime;
+		ExpiredAt: TDateTime;
+		Measure: TMeasure;
+		constructor Create(); overload;
+		constructor Create(AId: integer; ACaption: string; ACreatedAt, AExpiredAt: TDateTime;
+			AMeasure: TMeasure); overload;
+		constructor Create(AId: integer; ACaption: string; AMeasure: TMeasure); overload;
+		constructor Create(AId: integer; ACaption: string); overload;
+		constructor Create(AId: integer); overload;
+		function Insert(ABaseName: string): boolean;
+		function Delete(ABaseName: string): boolean;
+		function Update(ABaseName: string): boolean;
+	end;
+
+	TPIngredient = ^TIngredient;
+
+	TIngredientArray = array of TIngredient;
+
+	THistoryIngredient = class(TIngredient)
+		Amount: double;
+		constructor Create(AId: integer; ACaption: string; ACreatedAt, AExpiredAt: TDateTime;
+			AMeasure: TMeasure; AAmount: double);
+	end;
+
+	THistoryIngredientArray = array of THistoryIngredient;
+
+implementation
+
+uses
+	SysUtils, db_comps_additional;
+{ TIngredient }
+
+constructor TIngredient.Create;
+begin
+	Id := -1;
+end;
+
+constructor TIngredient.Create(AId: integer; ACaption: string; ACreatedAt,
+  AExpiredAt: TDateTime; AMeasure: TMeasure);
+begin
+	Id := AId;
+	Caption := ACaption;
+	CreatedAt := ACreatedAt;
+	ExpiredAt := AExpiredAt;
+	Measure := AMeasure;
+end;
+
+constructor TIngredient.Create(AId: integer; ACaption: string;
+  AMeasure: TMeasure);
+begin
+	Id := AId;
+	Caption := ACaption;
+	Measure := AMeasure;
+end;
+
+function TIngredient.Delete(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := false;
+		raise Exception.Create('TIngredient.Delete(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text := 'UPDATE ingredients SET expiredAt = CURRENT_TIMESTAMP WHERE id = :id;';
+		ParamByName('id').AsInteger := Id;
+		try
+			ExecSQL();
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+					'TIngredient.Delete(); Can not execute update query. Error: ' + E.Message
+				);
+				adc.Destroy;
+				Exit;
+            end;
+		end;
+		adc.Destroy;
+		result := true;
+    end;
+end;
+
+function TIngredient.Insert(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := false;
+		raise Exception.Create('TIngredient.Insert(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text :=
+			'INSERT INTO ingredients (caption, measure_id) VALUES (:caption, :measure_id);';
+		ParamByName('caption').AsString := Caption;
+		ParamByName('measure_id').AsInteger := Measure.Id;
+		try
+			ExecSQL();
+		except
+			on E:Exception do
+			begin
+				result := false;
+				raise Exception.Create(
+					'TIngredient.Insert(); Can not execute insert query. Error: ' + E.Message
+				);
+				adc.Destroy;
+				Exit;
+            end;
+		end;
+		adc.Destroy;
+		result := true;
+    end;
+end;
+
+function TIngredient.Update(ABaseName: string): boolean;
+var
+	adc: TDBCompsAddit;
+begin
+	//result := Delete(ABaseName) and Insert(ABaseName);
+end;
+
+constructor TIngredient.Create(AId: integer; ACaption: string);
+begin
+	Id := AId;
+	Caption := ACaption;
+end;
+
+constructor TIngredient.Create(AId: integer);
+begin
+	Id := AId;
+end;
+
+{ THistoryIngredient }
+
+constructor THistoryIngredient.Create(AId: integer; ACaption: string;
+  ACreatedAt, AExpiredAt: TDateTime; AMeasure: TMeasure; AAmount: double);
+begin
+	inherited Create(AId, ACaption, ACreatedAt, AExpiredAt, AMeasure);
+	Amount := AAmount;
+end;
+
+end.

@@ -1,0 +1,17 @@
+unit Session;
+
+interface
+
+type
+	TSession = class
+	public
+		Id: integer;
+		DtStart: TDateTime;
+		DtEnd: TDateTime;
+		constructor Create(AId: integer; ADtStart, ADtEnd: TDateTime);
+		constructor Create;
+	end;
+
+implementation
+
+end.
