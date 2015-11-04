@@ -15,7 +15,8 @@ type
 		ExpiredAt: TDateTime;
 		ActionAble: integer;
 		constructor Create(AId: integer; AGood: TGood; APrice: double; ACreatedAt,
-			AExpiredAt: TDateTime; AActionAble: integer);
+			AExpiredAt: TDateTime; AActionAble: integer); overload;
+		constructor Create(AId: integer; AGood: TGood; APrice: double); overload;
 	end;
 
 	TPPricedGood = ^TPricedGood;
@@ -62,6 +63,13 @@ begin
 	CreatedAt := ACreatedAt;
 	ExpiredAt := AExpiredAt;
 	ActionAble := AActionAble;
+end;
+
+constructor TPricedGood.Create(AId: integer; AGood: TGood; APrice: double);
+begin
+	Id := AId;
+	Good := AGood;
+	Price := APrice;
 end;
 
 end.

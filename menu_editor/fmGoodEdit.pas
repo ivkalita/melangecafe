@@ -12,9 +12,14 @@ type
 		pnlbtns: TPanel;
 		btnExit: TButton;
 		btnAddNew: TButton;
+    pnlGoods: TPanel;
+    edtSearch: TEdit;
+    btnSearch: TButton;
+    pnlSearch: TPanel;
 		procedure lstGoodsClick(Sender: TObject);
 		procedure btnAddNewClick(Sender: TObject);
 		procedure btnExitClick(Sender: TObject);
+    procedure btnSearchClick(Sender: TObject);
 	private
 		goods: TGoodArray;
 		FBaseName: string;
@@ -46,6 +51,28 @@ uses
 	procedure TfmGoodEditor.btnExitClick(Sender: TObject);
 	begin
 		Close;
+	end;
+
+	procedure TfmGoodEditor.btnSearchClick(Sender: TObject);
+	var
+		query: string;
+		i: integer;
+	begin
+		query := edtSearch.Text;
+		lstGoods.Items.Clear;
+		FBaseName := FBaseName;
+		if (query.Length > 0) then
+		begin
+			goods := TGoodRepository.GetAllByCaption(FBaseName, query)
+        end
+		else
+		begin
+			goods := TGoodRepository.GetAll(FBaseName);
+        end;
+		for i := 0 to high(goods) do
+		begin
+			lstGoods.AddItem(goods[i].Caption, nil);
+		end;
 	end;
 
 	procedure TfmGoodEditor.lstGoodsClick(Sender: TObject);

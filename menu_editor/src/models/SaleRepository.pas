@@ -30,12 +30,24 @@ begin
 		Exit;
 	end;
 	query :=
-		'SELECT' +
-		'	s.id as s_id, s.dt as s_dt, s.sale_type as s_st, d.id as d_id ' +
-		'FROM' +
-		'	sales s LEFT JOIN discounts d ON s.discount_id = d.id ' +
-		'WHERE' +
-		'	s.sess_id = :sess_id;';
+
+'SELECT ' +
+'    money_table.s_id as s_id, s.dt as s_dt, s.sale_type as s_st, d.id as d_id, money_table.money as money ' +
+'FROM                                                                            ' +
+'    sales s LEFT JOIN discounts d ON s.discount_id = d.id                       ' +
+'    INNER JOIN                                                                  ' +
+'		(SELECT                                                                  ' +
+'			s1.id as s_id,                                                       ' +
+'		   SUM(sg.amount * pg.price) as money                                    ' +
+'		FROM                                                                     ' +
+'			sales s1 LEFT JOIN discounts d ON s1.discount_id = d.id              ' +
+'		   INNER JOIN sale_goods sg ON sg.sale_id = s1.id                        ' +
+'		   INNER JOIN priced_goods pg ON sg.good_id = pg.id                      ' +
+'		WHERE                                                                    ' +
+'			s1.sess_id = :sess_id                                                ' +
+'		GROUP BY s1.id) as money_table                                           ' +
+'    ON s.id = money_table.s_id;                                                 ';
+
 	with adc.query do
 	begin
 		SQL.Text := query;
@@ -59,7 +71,8 @@ begin
 				FieldByName('s_dt').AsDateTime,
 				ASession,
 				TDiscount.Create(FieldByName('d_id').AsInteger),
-				FieldByName('s_st').AsInteger
+				FieldByName('s_st').AsInteger,
+				FieldByname('money').AsFloat
 			);
 			Next;
 		end;

@@ -7,6 +7,7 @@ type
 	TGoodRepository = class
 	public
 		class function GetAll(ABaseName: string): TGoodArray;
+		class function GetAllByCaption(ABaseName: string; ACaption: string): TGoodArray;
 		class function GetAllOrderBy(ABaseName: string; AOrderBy: string): TGoodArray;
 		class function GetLastInsertedId(ABaseName: string): integer;
 		class function GetForXL(ABaseName: string; ASessId: integer): TXLGoodArray;
@@ -21,6 +22,60 @@ uses
 class function TGoodRepository.GetAll(ABaseName: string): TGoodArray;
 begin
 	result := GetAllOrderBy(ABaseName, 'caption');
+end;
+
+class function TGoodRepository.GetAllByCaption(ABaseName,
+  ACaption: string): TGoodArray;
+var
+	adc: TDBCompsAddit;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := nil;
+		raise Exception.Create('TGoodRepository.GetAll(); Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	with adc.query do
+	begin
+		SQL.Text :=
+		'SELECT ' +
+			'g.id, pg.price, g.caption, pg.action_able, g.flag, g.parent_cat ' +
+		'FROM ' +
+			'Goods g INNER JOIN Priced_goods pg ' +
+		'ON pg.good_id = g.id ' +
+		'WHERE ' +
+			'pg.expiredAt is null and g.caption like :caption ' +
+		'ORDER BY g.caption';
+		ParamByName('caption').AsString := '%' + ACaption + '%';
+		try
+			Open;
+		except
+			on E:Exception do
+			begin
+				raise Exception.Create(
+				'TGoodRepository.GetAll(); Can not execute query! Error: ' + E.Message
+			);
+				adc.Destroy;
+				Exit;
+			end;
+		end;
+		while not eof do
+		begin
+			setlength(result, length(result) + 1);
+			result[high(result)] := TGood.Create(
+				FieldByName('id').AsInteger,
+				FieldByName('action_able').AsInteger,
+				FieldByName('parent_cat').AsInteger,
+				FieldByName('flag').AsInteger,
+				FieldByName('price').AsFloat,
+				FieldByName('caption').AsString
+			);
+			Next;
+		end;
+	end;
+	adc.Destroy;
 end;
 
 class function TGoodRepository.GetAllOrderBy(ABaseName,

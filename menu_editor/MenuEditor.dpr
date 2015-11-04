@@ -44,7 +44,11 @@ uses
   IngredientHistory in 'src\forms\IngredientHistory.pas' {fmIngredientHistory},
   IngredientRecipe in 'src\models\IngredientRecipe.pas',
   IngredientRecipeRepository in 'src\models\IngredientRecipeRepository.pas',
-  GoodHistory in 'src\forms\GoodHistory.pas' {fmGoodHistory};
+  History in 'src\forms\History.pas' {fmHistory},
+  Sale in 'src\models\Sale.pas',
+  SaleRepository in 'src\models\SaleRepository.pas',
+  SaleGood in 'src\models\SaleGood.pas',
+  SaleGoodRepository in 'src\models\SaleGoodRepository.pas';
 
 {$R *.res}
 
@@ -64,6 +68,6 @@ begin
   Application.CreateForm(TfmSalesHistory, fmSalesHistory);
   Application.CreateForm(TfmSessionPicker, fmSessionPicker);
   Application.CreateForm(TfmIngredientHistory, fmIngredientHistory);
-  Application.CreateForm(TfmGoodHistory, fmGoodHistory);
+  Application.CreateForm(TfmHistory, fmHistory);
   Application.Run;
 end.

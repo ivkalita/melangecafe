@@ -4,7 +4,8 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtDlgs, Vcl.StdCtrls, Vcl.ExtCtrls;
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtDlgs, Vcl.StdCtrls, Vcl.ExtCtrls,
+  Vcl.Menus;
 
 type
 
@@ -37,6 +38,7 @@ type
     btnExportMenu: TButton;
     btnGoodHistory: TButton;
     Splitter1: TSplitter;
+    Label3: TLabel;
       procedure btnGenFromFileClick(Sender: TObject);
       procedure btnSaleShotClick(Sender: TObject);
       procedure btnMenuEditClick(Sender: TObject);

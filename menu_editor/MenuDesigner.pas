@@ -663,7 +663,14 @@ procedure TfmMenuDesigner.treeMenuDragOver(Sender, Source: TObject; X,
   Y: Integer; State: TDragState; var Accept: Boolean);
 var
    src, dst: TTreeNode;
+   HitTests: THitTests;
 begin
+	HitTests := treeMenu.GetHitTestInfoAt(X,Y);
+	if (htAbove in HitTests) then
+		treeMenu.TopItem := treeMenu.TopItem.GetPrevVisible
+	else if (htBelow in HitTests) then
+    	treeMenu.TopItem := treeMenu.TopItem.GetNextVisible;
+
    src := treeMenu.Selected;
    dst := treeMenu.GetNodeAt(X, Y);
    Accept := Assigned(src) and Assigned(dst) and Assigned(src.Data) and (src <> dst);

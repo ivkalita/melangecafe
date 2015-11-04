@@ -1,0 +1,14 @@
+unit SaleGood;
+
+interface
+
+uses Sale, PricedGood;
+
+type
+	TSaleGood = class
+		Sale: TSale
+    end;
+
+implementation
+
+end.

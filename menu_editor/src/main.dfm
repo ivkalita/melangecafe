@@ -2,7 +2,7 @@ object fmMain: TfmMain
   Left = 0
   Top = 0
   Caption = #1040#1076#1084#1080#1085#1080#1089#1090#1088#1080#1088#1086#1074#1072#1085#1080#1077
-  ClientHeight = 555
+  ClientHeight = 575
   ClientWidth = 551
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -49,10 +49,17 @@ object fmMain: TfmMain
   object Splitter1: TSplitter
     Left = 0
     Top = 0
-    Height = 555
+    Height = 575
     ExplicitLeft = 376
     ExplicitTop = 288
     ExplicitHeight = 100
+  end
+  object Label3: TLabel
+    Left = 8
+    Top = 8
+    Width = 32
+    Height = 13
+    Caption = 'v1.1.0'
   end
   object btnSaleShot: TButton
     Left = 320

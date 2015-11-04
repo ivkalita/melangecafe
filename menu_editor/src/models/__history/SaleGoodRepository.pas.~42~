@@ -1,0 +1,144 @@
+unit SaleGoodRepository;
+
+interface
+
+uses SaleGood, Sale, Session;
+
+type
+	TSaleGoodRepository = class
+		class function GetAllForSale(ABaseName: string; Sale: TSale): TSaleGoodArray;
+		class function GetAllForSession(ABaseName: string; ASession: TSession): TSaleGoodArray;
+    end;
+
+implementation
+
+uses SysUtils, db_comps_additional, PricedGood, Good;
+
+{ TSaleGoodRepository }
+
+class function TSaleGoodRepository.GetAllForSale(ABaseName: string;
+  Sale: TSale): TSaleGoodArray;
+var
+	adc: TDBCompsAddit;
+	query: string;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := nil;
+		raise Exception.Create('TSaleGoodRepository.GetAllForSale Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	query :=
+		'SELECT' +
+		'	g.id as g_id, g.caption as g_caption, ' +
+		'   pg.id as pg_id, pg.price as pg_price, ' +
+		'   sg.amount as sg_amount, sg.action_amount as sg_action_amount ' +
+		'FROM ' +
+		'	sale_goods sg INNER JOIN priced_goods pg ON sg.good_id = pg.id ' +
+		'   INNER JOIN goods g ON pg.good_id = g.id ' +
+		'WHERE' +
+		'	sg.sale_id = :sale_id;';
+	with adc.query do
+	begin
+		SQL.Text := query;
+		ParamByName('sale_id').AsInteger := Sale.id;
+        try
+			Open;
+		except
+			on E:Exception do
+			begin
+				result := nil;
+				raise Exception.Create('TSaleGoodRepository.GetAllForSale(); Can not execute query! Error: ' + E.Message);
+				adc.Destroy;
+				Exit;
+			end;
+		end;
+		while (not eof) do
+		begin
+			setlength(result, length(result) + 1);
+			result[high(result)] := TSaleGood.Create(
+				Sale,
+				TPricedGood.Create(
+					FieldByName('pg_id').AsInteger,
+					TGood.Create(
+						FieldByName('g_id').AsInteger,
+						FieldByName('g_caption').AsString
+					),
+					FieldByName('pg_price').AsFloat
+				),
+				FieldByName('sg_amount').AsFloat,
+				FieldByName('sg_action_amount').AsFloat
+			);
+			Next;
+		end;
+		Close;
+	end;
+	adc.Destroy;
+end;
+
+class function TSaleGoodRepository.GetAllForSession(ABaseName: string;
+  ASession: TSession): TSaleGoodArray;
+var
+	adc: TDBCompsAddit;
+	query: string;
+begin
+	adc := TDBCompsAddit.Create(ABaseName);
+	if not adc.Init then
+	begin
+		result := nil;
+		raise Exception.Create('TSaleGoodRepository.GetAllForSession Can not init adc');
+		adc.Destroy;
+		Exit;
+	end;
+	query :=
+		'SELECT' +
+		'	g.id as g_id, g.caption as g_caption, ' +
+		'   pg.id as pg_id, pg.price as pg_price, ' +
+		'   sg.amount as sg_amount, sg.action_amount as sg_action_amount ' +
+		'FROM ' +
+		'	sale_goods sg INNER JOIN priced_goods pg ON sg.good_id = pg.id ' +
+		'   INNER JOIN goods g ON pg.good_id = g.id ' +
+		'   INNER JOIN sales s ON s.id = sg.sale_id ' +
+		'WHERE' +
+		'	sg.sale_id = :sale_id;';
+	with adc.query do
+	begin
+		SQL.Text := query;
+		ParamByName('sale_id').AsInteger := Sale.id;
+        try
+			Open;
+		except
+			on E:Exception do
+			begin
+				result := nil;
+				raise Exception.Create('TSaleGoodRepository.GetAllForSale(); Can not execute query! Error: ' + E.Message);
+				adc.Destroy;
+				Exit;
+			end;
+		end;
+		while (not eof) do
+		begin
+			setlength(result, length(result) + 1);
+			result[high(result)] := TSaleGood.Create(
+				Sale,
+				TPricedGood.Create(
+					FieldByName('pg_id').AsInteger,
+					TGood.Create(
+						FieldByName('g_id').AsInteger,
+						FieldByName('g_caption').AsString
+					),
+					FieldByName('pg_price').AsFloat
+				),
+				FieldByName('sg_amount').AsFloat,
+				FieldByName('sg_action_amount').AsFloat
+			);
+			Next;
+		end;
+		Close;
+	end;
+	adc.Destroy;
+end;
+
+end.

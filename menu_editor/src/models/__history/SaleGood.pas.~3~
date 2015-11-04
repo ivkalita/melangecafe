@@ -1,0 +1,17 @@
+unit SaleGood;
+
+interface
+
+uses Sale, PricedGood;
+
+type
+	TSaleGood = class
+		Sale: TSale;
+		PricedGood: TPricedGood;
+		Amount: double;
+		ActionAmount: double;
+    end;
+
+implementation
+
+end.
